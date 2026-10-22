@@ -77,3 +77,19 @@ SQLite via Drizzle ORM. Schema lives in `src/db/schema.ts`. After changing it:
 npm run db:generate -- --name <change>
 npm run db:migrate
 ```
+
+## Hosting (cPanel "Setup Node.js App", e.g. GoDaddy)
+
+1. **Application startup file:** `app.cjs`. It creates or updates the
+   database tables on start, then serves the built app.
+2. **Environment variables** (set in cPanel, never committed):
+   - `AUTO_DEV_API_KEY`, `MARKETCHECK_API_KEY`, `OLD_CARS_DATA_API_KEY`
+   - `DATABASE_PATH`: an absolute path outside `public_html`, e.g.
+     `/home/<cpanel-user>/car_tracker_data/tracker.db`
+   - `APP_PASSWORD`: the browser asks for it (any username). Leave it unset
+     only if the site isn't reachable from the internet.
+   - Don't set `NODE_ENV`: `npm install` would then skip the build tools.
+3. After each deploy: **Run NPM Install**, then **Run JS script → build**,
+   then **Restart**.
+4. To keep existing data, upload `data/tracker.db` from this Mac to
+   `DATABASE_PATH` while the app is stopped.
