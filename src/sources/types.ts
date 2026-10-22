@@ -65,6 +65,8 @@ export interface ListingSource {
   label: string;
   /** Free-plan calls per month. The call counter stops before this. */
   monthlyCallLimit: number;
+  /** Run this source on every Nth day (1 = daily). */
+  everyDays: number;
   /** Name of the env var holding this source's key. */
   apiKeyEnv: string;
   search(
@@ -88,3 +90,15 @@ export class SourceError extends Error {
 export const KM_PER_MILE = 1.609344;
 export const milesToKm = (miles: number) => Math.round(miles * KM_PER_MILE);
 export const kmToMiles = (km: number) => Math.floor(km / KM_PER_MILE);
+
+/** Thrown by SourceContext.beforeCall when a source is out of free calls. */
+export class BudgetExceededError extends Error {
+  constructor(
+    public readonly source: string,
+    public readonly used: number,
+    public readonly limit: number,
+  ) {
+    super(`${source} has used ${used} of ${limit} free calls this month`);
+    this.name = "BudgetExceededError";
+  }
+}

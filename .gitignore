@@ -14,3 +14,4 @@ data/*.db-*
 
 # macOS
 .DS_Store
+data/logs/

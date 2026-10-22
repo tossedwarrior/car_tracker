@@ -18,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <nav>
               <Link href="/">Watchlist</Link>
+              <Link href="/settings">Settings</Link>
             </nav>
           </div>
         </header>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureContext } from "@/test/fixtures";
 import { autodev, buildSearchUrl, normalize } from "./autodev";
-import { SourceError } from "./types";
+import { BudgetExceededError, SourceError } from "./types";
 
 const query = {
   make: "Ferrari",
@@ -148,5 +148,18 @@ describe("live response saved on 2026-10-22", () => {
       expect(l.url).toMatch(/^https?:\/\//);
       expect(l.listedAt).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
     }
+  });
+});
+
+describe("running out of calls mid-search", () => {
+  it("keeps the pages already fetched and reports the rest as not fetched", async () => {
+    const ctx = fixtureContext([{ fixture: "autodev/search-page1.json" }]);
+    let calls = 0;
+    ctx.beforeCall = () => {
+      if (++calls > 1) throw new BudgetExceededError("autodev", 1000, 1000);
+    };
+    const result = await autodev.search(query, ctx);
+    expect(result).toMatchObject({ calls: 1, truncated: true });
+    expect(result.listings).toHaveLength(19);
   });
 });

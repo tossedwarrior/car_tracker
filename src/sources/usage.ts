@@ -1,17 +1,9 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { apiUsage } from "@/db/schema";
+import { BudgetExceededError } from "./types";
 
-export class BudgetExceededError extends Error {
-  constructor(
-    public readonly source: string,
-    public readonly used: number,
-    public readonly limit: number,
-  ) {
-    super(`${source} has used ${used} of ${limit} free calls this month`);
-    this.name = "BudgetExceededError";
-  }
-}
+export { BudgetExceededError };
 
 /** Current month as YYYY-MM (UTC). */
 export const monthKey = (date = new Date()) => date.toISOString().slice(0, 7);

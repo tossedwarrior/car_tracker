@@ -36,7 +36,7 @@ for (const listing of raw.data.map(normalize)) {
   if (!listing) continue;
   const row = db
     .insert(listings)
-    .values({ ...listing, watchId: watch.id, firstSeen: SEEN, lastSeen: SEEN })
+    .values({ ...listing, watchId: watch.id, firstSeen: SEEN, lastSeen: SEEN, lastChecked: SEEN })
     .onConflictDoNothing()
     .returning({ id: listings.id, price: listings.price, currency: listings.currency })
     .get();

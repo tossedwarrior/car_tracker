@@ -72,6 +72,9 @@ export const listings = sqliteTable(
     listedAt: text("listed_at"),
     firstSeen: text("first_seen").notNull(),
     lastSeen: text("last_seen").notNull(),
+    // Date this listing's source last completed a full search for its watch.
+    // Stops a second run on the same day from counting a miss twice.
+    lastChecked: text("last_checked"),
     // Consecutive daily checks the listing was missing from. At 3 it's "gone".
     missedChecks: integer("missed_checks").notNull().default(0),
     status: text("status", { enum: listingStatuses })
@@ -79,8 +82,8 @@ export const listings = sqliteTable(
       .default("active"),
   },
   (t) => [
-    uniqueIndex("listings_source_id_uq").on(t.source, t.sourceListingId),
-    index("listings_vin_idx").on(t.vin),
+    uniqueIndex("listings_watch_source_id_uq").on(t.watchId, t.source, t.sourceListingId),
+    index("listings_watch_vin_idx").on(t.watchId, t.vin),
     index("listings_watch_status_idx").on(t.watchId, t.status),
   ],
 );
@@ -194,3 +197,15 @@ export const fxRates = sqliteTable(
   },
   (t) => [uniqueIndex("fx_rates_date_pair_uq").on(t.date, t.base, t.quote)],
 );
+
+export const checkRunStatuses = ["running", "ok", "partial", "failed"] as const;
+
+/** One row per daily check, for the settings page. */
+export const checkRuns = sqliteTable("check_runs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  startedAt: text("started_at").notNull(),
+  finishedAt: text("finished_at"),
+  status: text("status", { enum: checkRunStatuses }).notNull().default("running"),
+  // What happened, one line per watch and source.
+  log: text("log").notNull().default(""),
+});

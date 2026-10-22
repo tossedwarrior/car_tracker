@@ -1,4 +1,5 @@
 import {
+  BudgetExceededError,
   kmToMiles,
   milesToKm,
   SourceError,
@@ -129,7 +130,14 @@ async function search(
   let total: number | null = null;
 
   while (url && calls < maxPages) {
-    const page = await fetchPage(url, ctx);
+    let page: AutoDevResponse;
+    try {
+      page = await fetchPage(url, ctx);
+    } catch (e) {
+      // Out of calls partway through: keep the pages already fetched.
+      if (e instanceof BudgetExceededError && calls > 0) break;
+      throw e;
+    }
     calls++;
     total ??= page.total ?? null;
     for (const raw of page.data ?? []) {
@@ -148,6 +156,7 @@ export const autodev: ListingSource = {
   id: "autodev",
   label: "Auto.dev (U.S.)",
   monthlyCallLimit: 1000,
+  everyDays: 1,
   apiKeyEnv: "AUTO_DEV_API_KEY",
   search,
 };

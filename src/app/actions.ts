@@ -40,3 +40,15 @@ export async function removeWatch(form: FormData) {
   revalidatePath("/");
   redirect("/");
 }
+
+export interface CheckNowState {
+  log?: string[];
+  status?: string;
+}
+
+export async function runCheckNow(_prev: CheckNowState): Promise<CheckNowState> {
+  const { runDailyCheck } = await import("@/jobs/daily");
+  const result = await runDailyCheck();
+  revalidatePath("/", "layout");
+  return { log: result.log, status: result.status };
+}
