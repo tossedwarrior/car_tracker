@@ -1,0 +1,7 @@
+{
+  "data": [],
+  "links": {
+    "self": "https://api.auto.dev/listings?page=1&limit=20"
+  },
+  "total": 0
+}

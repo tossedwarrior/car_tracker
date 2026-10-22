@@ -1,0 +1,146 @@
+{
+  "data": [
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA19B017001",
+      "vin": "ZFF67NFA19B017001",
+      "location": [
+        -80,
+        25.950000000000003
+      ],
+      "createdAt": "2026-02-20 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA19B017001",
+        "squishVin": "ZFF67NFA9B",
+        "year": 2015,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Speciale",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA19B017001",
+        "price": 285250,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Beverly Hills",
+        "city": "Beverly Hills",
+        "state": "CA",
+        "zip": "90211",
+        "miles": 21100,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA19B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA21B017002",
+      "vin": "ZFF67NFA21B017002",
+      "location": [
+        -79.98,
+        25.970000000000002
+      ],
+      "createdAt": "2026-04-22 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA21B017002",
+        "squishVin": "ZFF67NFA1B",
+        "year": 2012,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Spider",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA21B017002",
+        "price": 294750,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Scottsdale",
+        "city": "Scottsdale",
+        "state": "AZ",
+        "zip": "85260",
+        "miles": 22900,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA21B017002-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA22B017002",
+      "vin": "ZFF67NFA22B017002",
+      "location": [
+        -79.97,
+        25.98
+      ],
+      "createdAt": "2026-05-23 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA22B017002",
+        "squishVin": "ZFF67NFA2B",
+        "year": 2013,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA22B017002",
+        "price": 299500,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Greenwich",
+        "city": "Greenwich",
+        "state": "CT",
+        "zip": "06830",
+        "miles": 23800,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA22B017002-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA23B017002",
+      "vin": "ZFF67NFA23B017002",
+      "location": [
+        -79.96,
+        25.990000000000002
+      ],
+      "createdAt": "2026-06-24 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA23B017002",
+        "squishVin": "ZFF67NFA3B",
+        "year": 2014,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Speciale",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA23B017002",
+        "price": 304250,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Houston",
+        "city": "Houston",
+        "state": "TX",
+        "zip": "77057",
+        "miles": 24700,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA23B017002-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    }
+  ],
+  "links": {
+    "self": "https://api.auto.dev/listings?page=2&limit=20",
+    "prev": "https://api.auto.dev/listings?page=1&limit=20",
+    "first": "https://api.auto.dev/listings"
+  },
+  "total": 23
+}

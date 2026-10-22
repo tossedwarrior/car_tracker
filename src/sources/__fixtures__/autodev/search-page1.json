@@ -1,0 +1,680 @@
+{
+  "data": [
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA1B0170001",
+      "vin": "ZFF67NFA1B0170001",
+      "location": [
+        -80.17999999999999,
+        25.770000000000003
+      ],
+      "createdAt": "2026-02-02 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA1B0170001",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2012,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Spider",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA1B0170001",
+        "price": 199750,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Scottsdale",
+        "city": "Scottsdale",
+        "state": "AZ",
+        "zip": "85260",
+        "miles": 4900,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA1B0170001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA2B0170002",
+      "vin": "ZFF67NFA2B0170002",
+      "location": [
+        -80.17,
+        25.78
+      ],
+      "createdAt": "2026-03-03 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA2B0170002",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2013,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA2B0170002",
+        "price": 204500,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Greenwich",
+        "city": "Greenwich",
+        "state": "CT",
+        "zip": "06830",
+        "miles": 5800,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA2B0170002-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA3B0170003",
+      "vin": "ZFF67NFA3B0170003",
+      "location": [
+        -80.16,
+        25.790000000000003
+      ],
+      "createdAt": "2026-04-04 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA3B0170003",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2014,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Speciale",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA3B0170003",
+        "price": 209250,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Houston",
+        "city": "Houston",
+        "state": "TX",
+        "zip": "77057",
+        "miles": 6700,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA3B0170003-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA4B0170004",
+      "vin": "ZFF67NFA4B0170004",
+      "location": [
+        -80.14999999999999,
+        25.8
+      ],
+      "createdAt": "2026-05-05 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA4B0170004",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2015,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA4B0170004",
+        "price": 0,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Beverly Hills",
+        "city": "Beverly Hills",
+        "state": "CA",
+        "zip": "90211",
+        "miles": 7600,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA4B0170004-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA5B0170005",
+      "vin": "ZFF67NFA5B0170005",
+      "location": [
+        -80.14,
+        25.810000000000002
+      ],
+      "createdAt": "2026-06-06 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA5B0170005",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2011,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Spider",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA5B0170005",
+        "price": 218750,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Miami",
+        "city": "Miami",
+        "state": "FL",
+        "zip": "33132",
+        "miles": 8500,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA5B0170005-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA6B0170006",
+      "vin": "ZFF67NFA6B0170006",
+      "location": [
+        -80.13,
+        25.82
+      ],
+      "createdAt": "2026-07-07 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA6B0170006",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2012,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA6B0170006",
+        "price": 223500,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Scottsdale",
+        "city": "Scottsdale",
+        "state": "AZ",
+        "zip": "85260",
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA6B0170006-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA7B0170007",
+      "vin": "ZFF67NFA7B0170007",
+      "location": [
+        -80.12,
+        25.830000000000002
+      ],
+      "createdAt": "2026-08-08 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA7B0170007",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2013,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Speciale",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA7B0170007",
+        "price": 228250,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Greenwich",
+        "city": "Greenwich",
+        "state": "CT",
+        "zip": "06830",
+        "miles": 10300,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA7B0170007-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA8B0170008",
+      "vin": "ZFF67NFA8B0170008",
+      "location": [
+        -80.11,
+        25.84
+      ],
+      "createdAt": "2026-09-09 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA8B0170008",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2014,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": {
+        "auction": "OVE",
+        "miles": 12000
+      },
+      "retailListing": null,
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA9B0170009",
+      "vin": "ZFF67NFA9B0170009",
+      "location": [
+        -80.1,
+        25.85
+      ],
+      "createdAt": "2026-01-10 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA9B0170009",
+        "squishVin": "ZFF67NFAB0",
+        "year": 2015,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Spider",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA9B0170009",
+        "price": 237750,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Beverly Hills",
+        "city": "Beverly Hills",
+        "state": "CA",
+        "zip": "90211",
+        "miles": 12100,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA9B0170009-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA10B017001",
+      "vin": "ZFF67NFA10B017001",
+      "location": [
+        -80.09,
+        25.860000000000003
+      ],
+      "createdAt": "2026-02-11 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA10B017001",
+        "squishVin": "ZFF67NFA0B",
+        "year": 2011,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA10B017001",
+        "price": 242500,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Miami",
+        "city": "Miami",
+        "state": "FL",
+        "zip": "33132",
+        "miles": 13000,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA10B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA11B017001",
+      "vin": "ZFF67NFA11B017001",
+      "location": [
+        -80.08,
+        25.87
+      ],
+      "createdAt": "2026-03-12 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA11B017001",
+        "squishVin": "ZFF67NFA1B",
+        "year": 2012,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Speciale",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA11B017001",
+        "price": 247250,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Scottsdale",
+        "city": "Scottsdale",
+        "state": "AZ",
+        "zip": "85260",
+        "miles": 13900,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA11B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA12B017001",
+      "vin": "ZFF67NFA12B017001",
+      "location": [
+        -80.07,
+        25.880000000000003
+      ],
+      "createdAt": "2026-04-13 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA12B017001",
+        "squishVin": "ZFF67NFA2B",
+        "year": 2013,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA12B017001",
+        "price": 252000,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Greenwich",
+        "city": "Greenwich",
+        "state": "CT",
+        "zip": "06830",
+        "miles": 14800,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA12B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA13B017001",
+      "vin": "ZFF67NFA13B017001",
+      "location": [
+        -80.06,
+        25.89
+      ],
+      "createdAt": "2026-05-14 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA13B017001",
+        "squishVin": "ZFF67NFA3B",
+        "year": 2014,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Spider",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA13B017001",
+        "price": 256750,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Houston",
+        "city": "Houston",
+        "state": "TX",
+        "zip": "77057",
+        "miles": 15700,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA13B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA14B017001",
+      "vin": "ZFF67NFA14B017001",
+      "location": [
+        -80.05,
+        25.900000000000002
+      ],
+      "createdAt": "2026-06-15 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA14B017001",
+        "squishVin": "ZFF67NFA4B",
+        "year": 2015,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA14B017001",
+        "price": 261500,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Beverly Hills",
+        "city": "Beverly Hills",
+        "state": "CA",
+        "zip": "90211",
+        "miles": 16600,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA14B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA15B017001",
+      "vin": "ZFF67NFA15B017001",
+      "location": [
+        -80.03999999999999,
+        25.91
+      ],
+      "createdAt": "2026-07-16 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA15B017001",
+        "squishVin": "ZFF67NFA5B",
+        "year": 2011,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Speciale",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA15B017001",
+        "price": 266250,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Miami",
+        "city": "Miami",
+        "state": "FL",
+        "zip": "33132",
+        "miles": 17500,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA15B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA16B017001",
+      "vin": "ZFF67NFA16B017001",
+      "location": [
+        -80.03,
+        25.92
+      ],
+      "createdAt": "2026-08-17 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA16B017001",
+        "squishVin": "ZFF67NFA6B",
+        "year": 2012,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA16B017001",
+        "price": 271000,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Scottsdale",
+        "city": "Scottsdale",
+        "state": "AZ",
+        "zip": "85260",
+        "miles": 18400,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA16B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA17B017001",
+      "vin": "ZFF67NFA17B017001",
+      "location": [
+        -80.02,
+        25.930000000000003
+      ],
+      "createdAt": "2026-09-18 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA17B017001",
+        "squishVin": "ZFF67NFA7B",
+        "year": 2013,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Spider",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA17B017001",
+        "price": 275750,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Greenwich",
+        "city": "Greenwich",
+        "state": "CT",
+        "zip": "06830",
+        "miles": 19300,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA17B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA18B017001",
+      "vin": "ZFF67NFA18B017001",
+      "location": [
+        -80.00999999999999,
+        25.94
+      ],
+      "createdAt": "2026-01-19 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA18B017001",
+        "squishVin": "ZFF67NFA8B",
+        "year": 2014,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA18B017001",
+        "price": 280500,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Houston",
+        "city": "Houston",
+        "state": "TX",
+        "zip": "77057",
+        "miles": 20200,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA18B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA19B017001",
+      "vin": "ZFF67NFA19B017001",
+      "location": [
+        -80,
+        25.950000000000003
+      ],
+      "createdAt": "2026-02-20 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA19B017001",
+        "squishVin": "ZFF67NFA9B",
+        "year": 2015,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Speciale",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA19B017001",
+        "price": 285250,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Beverly Hills",
+        "city": "Beverly Hills",
+        "state": "CA",
+        "zip": "90211",
+        "miles": 21100,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA19B017001-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    },
+    {
+      "@id": "https://api.auto.dev/listings/ZFF67NFA20B017002",
+      "vin": "ZFF67NFA20B017002",
+      "location": [
+        -79.99,
+        25.96
+      ],
+      "createdAt": "2026-03-21 14:04:06",
+      "vehicle": {
+        "vin": "ZFF67NFA20B017002",
+        "squishVin": "ZFF67NFA0B",
+        "year": 2011,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "drivetrain": "RWD",
+        "transmission": "Automatic"
+      },
+      "wholesaleListing": null,
+      "retailListing": {
+        "vdp": "https://dealer.example.com/inventory/ZFF67NFA20B017002",
+        "price": 290000,
+        "used": true,
+        "cpo": false,
+        "dealer": "Sample Exotics of Miami",
+        "city": "Miami",
+        "state": "FL",
+        "zip": "33132",
+        "miles": 22000,
+        "primaryImage": "https://retail.photos.vin/ZFF67NFA20B017002-1.jpg",
+        "photoCount": 40
+      },
+      "history": null
+    }
+  ],
+  "links": {
+    "self": "https://api.auto.dev/listings?page=1&limit=20",
+    "next": "https://api.auto.dev/listings?page=2&limit=20",
+    "first": "https://api.auto.dev/listings"
+  },
+  "total": 23
+}

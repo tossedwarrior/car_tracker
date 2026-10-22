@@ -1,0 +1,7 @@
+{
+  "status": 400,
+  "error": "Invalid parameter provided: make. This parameter does not exist in this endpoint.",
+  "code": "INVALID_PARAMETER",
+  "path": "/listings",
+  "requestId": "966e8386bb38f095"
+}

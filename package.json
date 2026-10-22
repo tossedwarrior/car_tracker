@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check-source": "tsx scripts/check-source.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
@@ -30,6 +31,7 @@
     "@types/react-dom": "^19.3.0",
     "dotenv": "^18.0.8",
     "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
     "typescript": "~5.9",
     "vitest": "^5.0.5"
   }
