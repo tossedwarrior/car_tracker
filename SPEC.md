@@ -80,7 +80,7 @@ Left out for now: other users and logins, a mobile app, scraping sites without a
 - [ ] Full watchlist: which models besides Ferrari and Aston Martin?
 - [ ] How should alerts reach me: email, phone notification, or just a badge in the app?
 - [ ] Are four search cities enough for Canadian listings from day one (MarketCheck)?
-- [ ] Is auction data worth $49/mo once the free 10 calls feel too tight?
+- [x] Is auction data worth $49/mo once the free 10 calls feel too tight? **Not for now (Oct 22, 2026):** staying on the free plan and letting the sale history build up through "Update sold prices", rather than paying for a month to load history back to 2019.
 
 ## Prompt for Claude Code
 
