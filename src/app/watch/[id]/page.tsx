@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RefreshButton } from "@/components/RefreshButton";
+import { updatedText, WatchHeader } from "@/components/WatchHeader";
 import { maxRefreshCalls } from "@/jobs/refresh";
-import { daysSince, formatKm, formatPrice, formatYears, timeAgo, watchTitle } from "@/lib/format";
+import { getSoldResults } from "@/jobs/sold";
+import { daysSince, formatKm, formatPrice } from "@/lib/format";
 import {
   countGone,
   getListings,
@@ -37,6 +39,7 @@ export default async function WatchListingsPage({
   const includeGone = query.gone === "1";
   const rows = getListings(watch.id, { sort, includeGone });
   const goneCount = countGone(watch.id);
+  const forSaleCount = includeGone ? rows.length - goneCount : rows.length;
 
   const href = (next: { sort?: ListingSort; gone?: boolean }) => {
     const p = new URLSearchParams();
@@ -49,25 +52,14 @@ export default async function WatchListingsPage({
 
   return (
     <>
-      <p className="crumb">
-        <Link href="/">Watchlist</Link>
-      </p>
-      <div className="page-head">
-        <div>
-          <h1>{watchTitle(watch)}</h1>
-          <p className="muted">{criteria(watch)}</p>
-          <p className="muted small">
-            {watch.lastRefreshed ? `Refreshed ${timeAgo(watch.lastRefreshed)}` : "Not refreshed yet"}
-          </p>
-        </div>
-        <div className="head-actions">
-          {watch.active && <RefreshButton watchId={watch.id} maxCalls={maxRefreshCalls(1)} />}
-          <Link href={`/watch/${watch.id}/edit`} className="button">
-            Edit
-          </Link>
-        </div>
-      </div>
-      {watch.notes && <p className="notes">{watch.notes}</p>}
+      <WatchHeader
+        watch={watch}
+        tab="listings"
+        forSaleCount={forSaleCount}
+        soldCount={getSoldResults(watch).length}
+        updated={updatedText("Listings refreshed", watch.lastRefreshed, "Listings not refreshed yet")}
+        action={watch.active && <RefreshButton watchId={watch.id} maxCalls={maxRefreshCalls(1)} />}
+      />
 
       <div className="toolbar">
         <nav className="segmented" aria-label="Sort listings">
@@ -159,12 +151,3 @@ function ListingRow({ listing: l, watch }: { listing: Listing; watch: Watch }) {
   );
 }
 
-function criteria(w: Watch) {
-  return [
-    formatYears(w.yearMin, w.yearMax),
-    w.maxKm ? `under ${formatKm(w.maxKm)}` : null,
-    w.targetPrice ? `target ${formatPrice(w.targetPrice, w.targetCurrency)}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}

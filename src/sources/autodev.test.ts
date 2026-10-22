@@ -102,7 +102,7 @@ describe("autodev.search", () => {
 
   it("stops at maxPages and reports the result as truncated", async () => {
     const ctx = fixtureContext([{ fixture: "autodev/search-page1.json" }]);
-    const result = await autodev.search(query, ctx, { maxPages: 1 });
+    const result = await autodev.search(query, ctx, { maxCalls: 1 });
     expect(result.calls).toBe(1);
     expect(result.truncated).toBe(true);
     expect(result.listings).toHaveLength(19);
@@ -135,7 +135,7 @@ describe("autodev.search", () => {
 describe("live response saved on 2026-10-22", () => {
   it("normalizes every row of a real Auto.dev page", async () => {
     const ctx = fixtureContext([{ fixture: "autodev/live-2026-10-22.json" }]);
-    const result = await autodev.search(query, ctx, { maxPages: 1 });
+    const result = await autodev.search(query, ctx, { maxCalls: 1 });
     expect(result.total).toBe(80);
     expect(result.truncated).toBe(true);
     expect(result.listings).toHaveLength(20);

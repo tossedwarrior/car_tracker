@@ -5,7 +5,7 @@ import { watchTitle } from "@/lib/format";
 import { liveContext, listingSources } from "@/sources";
 import { BudgetExceededError, type ListingSource, type SourceContext } from "@/sources/types";
 import { getUsage } from "@/sources/usage";
-import { localDate, pagesPerWatch } from "./budget";
+import { callsPerWatch, localDate } from "./budget";
 import { recordListings, type IngestStats } from "./ingest";
 
 export interface RefreshOptions {
@@ -38,6 +38,7 @@ export async function runRefresh({
   const log: string[] = [];
   let problems = 0;
   let calls = 0;
+  let sourcesRun = 0;
 
   const run = db
     .insert(checkRuns)
@@ -62,22 +63,24 @@ export async function runRefresh({
     try {
       ctx = contextFor(source);
     } catch (e) {
+      // A source without a key is just not set up yet, not a failure.
       log.push(`${source.label}: skipped, ${(e as Error).message}.`);
-      problems++;
       continue;
     }
+    sourcesRun++;
 
-    const maxPages = pagesPerWatch({
+    const maxCalls = callsPerWatch({
+      ...source.callsPerWatch,
       limit: source.monthlyCallLimit,
       used: getUsage(source.id),
       watchCount: watches.length,
     });
-    log.push(`${source.label}: up to ${maxPages} page(s) per car.`);
+    log.push(`${source.label}: up to ${maxCalls} call(s) per car.`);
 
     for (const watch of watches) {
       const name = watchTitle(watch);
       try {
-        const result = await source.search(watch, ctx, { maxPages });
+        const result = await source.search(watch, ctx, { maxCalls });
         calls += result.calls;
         const stats = recordListings({
           watchId: watch.id,
@@ -106,7 +109,8 @@ export async function runRefresh({
       .where(inArray(watchlist.id, [...refreshed]))
       .run();
   }
-  const status = problems === 0 ? "ok" : calls > 0 ? "partial" : "failed";
+  const status =
+    problems > 0 ? (calls > 0 ? "partial" : "failed") : sourcesRun > 0 || !watches.length ? "ok" : "failed";
   db.update(checkRuns)
     .set({ finishedAt, status, log: log.join("\n") })
     .where(eq(checkRuns.id, run.id))
@@ -123,7 +127,7 @@ export function maxRefreshCalls(watchCount: number): number {
       (n, s) =>
         n +
         watchCount *
-          pagesPerWatch({ limit: s.monthlyCallLimit, used: getUsage(s.id), watchCount }),
+          callsPerWatch({ ...s.callsPerWatch, limit: s.monthlyCallLimit, used: getUsage(s.id), watchCount }),
       0,
     );
 }

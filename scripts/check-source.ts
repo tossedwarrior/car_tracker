@@ -1,8 +1,10 @@
-// Run one search against a real listing source and print what comes back.
-// Uses real API calls (one per page), counted against the monthly limit.
+// Run one search against a real source and print what comes back.
+// Uses real API calls, counted against the source's monthly limit.
 //
 //   npm run check-source -- autodev --make Ferrari --model "458 Italia" --years 2011-2015 --max-km 40000
 //   npm run check-source -- autodev ... --pages 2 --save
+//   npm run check-source -- marketcheck ... --pages 4      # one call per city
+//   npm run check-source -- oldcarsdata --make Ferrari --model "458 Italia" --years 2011-2015
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
@@ -18,6 +20,7 @@ const { positionals, values } = parseArgs({
     years: { type: "string" },
     "max-km": { type: "string" },
     trim: { type: "string" },
+    // Listing sources only: most calls (pages) to use.
     pages: { type: "string", default: "1" },
     save: { type: "boolean", default: false },
   },
@@ -53,22 +56,39 @@ if (values.save) {
 }
 
 const before = getUsage(source.id);
-const result = await source.search(query, ctx, { maxPages: Number(values.pages) });
-
-console.table(
-  result.listings.map((l) => ({
-    title: l.title,
-    price: l.price,
-    km: l.km,
-    seller: l.sellerName,
-    location: l.location,
-    listed: l.listedAt?.slice(0, 10),
-  })),
-);
-console.log(
-  `${result.listings.length} listings, ${result.total ?? "?"} total reported, ` +
-    `${result.calls} call(s)${result.truncated ? ", more pages not fetched" : ""}.`,
-);
+if (source.kind === "listings") {
+  const result = await source.search(query, ctx, { maxCalls: Number(values.pages) });
+  console.table(
+    result.listings.map((l) => ({
+      title: l.title,
+      price: l.price,
+      currency: l.currency,
+      km: l.km,
+      seller: l.sellerName,
+      location: l.location,
+      listed: l.listedAt?.slice(0, 10),
+    })),
+  );
+  console.log(
+    `${result.listings.length} listings, ${result.total ?? "?"} total reported, ` +
+      `${result.calls} call(s)${result.truncated ? ", more pages not fetched" : ""}.`,
+  );
+} else {
+  const result = await source.search(query, ctx);
+  console.table(
+    result.results.map((r) => ({
+      sold: r.soldDate,
+      title: r.title,
+      price: r.price,
+      currency: r.currency,
+      km: r.km,
+      at: r.auctionHouse,
+    })),
+  );
+  console.log(
+    `${result.results.length} sold results${result.matchedModel ? ` (model "${result.matchedModel}")` : ""}, ${result.calls} metered call(s).`,
+  );
+}
 console.log(`${source.label}: ${before} → ${getUsage(source.id)} of ${source.monthlyCallLimit} calls this month.`);
 
 if (values.save) {

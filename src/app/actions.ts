@@ -54,3 +54,24 @@ export async function refreshListings(_prev: RefreshState, form: FormData): Prom
   revalidatePath("/", "layout");
   return { status: result.status, log: result.log, calls: result.calls };
 }
+
+export interface SoldPullState {
+  message?: string;
+  error?: string;
+}
+
+export async function pullSold(_prev: SoldPullState, form: FormData): Promise<SoldPullState> {
+  const { pullSoldResults } = await import("@/jobs/sold");
+  const watchId = Number(form.get("watchId"));
+  try {
+    const r = await pullSoldResults(watchId);
+    revalidatePath(`/watch/${watchId}`, "layout");
+    return {
+      message: `${r.found} recent sale${r.found === 1 ? "" : "s"} found, ${r.added} new${
+        r.matchedModel ? ` (searched as "${r.matchedModel}")` : ""
+      }.`,
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}

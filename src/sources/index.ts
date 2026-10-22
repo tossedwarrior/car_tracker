@@ -1,18 +1,27 @@
 import { autodev } from "./autodev";
-import type { ListingSource, SourceContext } from "./types";
+import { marketcheck } from "./marketcheck";
+import { oldcarsdata } from "./oldcarsdata";
+import type { ApiSource, ListingSource, SoldSource, SourceContext } from "./types";
 import { reserveCall } from "./usage";
 
-/** Every listing source the app knows about. Remove one here to turn it off. */
-export const listingSources: ListingSource[] = [autodev];
+/** Sources of cars for sale. Remove one here to turn it off. */
+export const listingSources: ListingSource[] = [autodev, marketcheck];
 
-export function getSource(id: string): ListingSource {
-  const source = listingSources.find((s) => s.id === id);
-  if (!source) throw new Error(`Unknown source: ${id}`);
+/** Sources of auction results. */
+export const soldSources: SoldSource[] = [oldcarsdata];
+
+export const allSources: Array<ListingSource | SoldSource> = [...listingSources, ...soldSources];
+
+export function getSource(id: string): ListingSource | SoldSource {
+  const source = allSources.find((s) => s.id === id);
+  if (!source) throw new Error(`Unknown source: ${id}. Known: ${allSources.map((s) => s.id).join(", ")}`);
   return source;
 }
 
+export const hasApiKey = (source: ApiSource) => !!process.env[source.apiKeyEnv];
+
 /** Real context: global fetch, the monthly call counter, and the key from .env. */
-export function liveContext(source: ListingSource): SourceContext {
+export function liveContext(source: ApiSource): SourceContext {
   const apiKey = process.env[source.apiKeyEnv];
   if (!apiKey) throw new Error(`${source.apiKeyEnv} is not set in .env`);
   return {

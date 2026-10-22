@@ -122,14 +122,14 @@ async function fetchPage(url: string, ctx: SourceContext): Promise<AutoDevRespon
 async function search(
   query: ListingQuery,
   ctx: SourceContext,
-  { maxPages = 5 }: SearchOptions = {},
+  { maxCalls = autodev.callsPerWatch.max }: SearchOptions = {},
 ): Promise<SearchResult> {
   const listings = new Map<string, NormalizedListing>();
   let url: string | undefined = buildSearchUrl(query);
   let calls = 0;
   let total: number | null = null;
 
-  while (url && calls < maxPages) {
+  while (url && calls < maxCalls) {
     let page: AutoDevResponse;
     try {
       page = await fetchPage(url, ctx);
@@ -153,9 +153,11 @@ async function search(
 }
 
 export const autodev: ListingSource = {
+  kind: "listings",
   id: "autodev",
   label: "Auto.dev (U.S.)",
   monthlyCallLimit: 1000,
+  callsPerWatch: { min: 1, max: 5 },
   apiKeyEnv: "AUTO_DEV_API_KEY",
   search,
 };

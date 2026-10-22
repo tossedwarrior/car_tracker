@@ -143,3 +143,20 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .refresh-result summary { cursor: pointer; text-align: right; }
 
 table.listings td:last-child { white-space: nowrap; }
+
+.nowrap { white-space: nowrap; }
+.good { color: var(--good); }
+.notice {
+  padding: 10px 14px; border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: var(--radius); background: var(--surface);
+}
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 8px 0 16px; }
+.tabs a {
+  padding: 8px 12px; text-decoration: none; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tabs a[aria-current] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+.tabs .count { font-size: 0.8em; color: var(--muted); margin-left: 2px; font-weight: 400; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.tile-value { font-size: 1.4rem; font-weight: 650; font-variant-numeric: tabular-nums; margin: 2px 0; }

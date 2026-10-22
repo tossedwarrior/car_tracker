@@ -1,0 +1,86 @@
+{
+  "num_found": 2,
+  "listings": [
+    {
+      "id": "mc-tor-1",
+      "vin": "ZFF67NFA0D0190001",
+      "heading": "2013 Ferrari 458 Italia Base",
+      "price": 329900,
+      "miles": 14000,
+      "msrp": 0,
+      "data_source": "mc",
+      "vdp_url": "https://dealer.example.ca/inventory/ZFF67NFA0D0190001",
+      "seller_type": "dealer",
+      "inventory_type": "used",
+      "dom": 34,
+      "dom_180": 34,
+      "dom_active": 34,
+      "first_seen_at": 1758000000,
+      "first_seen_at_date": "2025-09-16T05:20:00Z",
+      "first_seen_at_source": 1757900000,
+      "first_seen_at_source_date": "2025-09-15T01:33:20Z",
+      "last_seen_at": 1792600000,
+      "last_seen_at_date": "2026-10-21T12:26:40Z",
+      "source": "dealer.example.ca",
+      "dealer": {
+        "id": 1001,
+        "website": "dealer.example.ca",
+        "name": "Sample Exotics Toronto",
+        "dealer_type": "independent",
+        "city": "Toronto",
+        "state": "ON",
+        "country": "CA",
+        "zip": "M5V 2T6"
+      },
+      "build": {
+        "year": 2013,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Base",
+        "body_type": "Coupe",
+        "transmission": "Automatic",
+        "drivetrain": "RWD"
+      },
+      "dist": 12.4
+    },
+    {
+      "id": "mc-tor-2",
+      "vin": "ZFF68NHA5E0190002",
+      "heading": "2014 Ferrari 458 Spider",
+      "price": 389000,
+      "miles": 6200,
+      "msrp": 0,
+      "data_source": "mc",
+      "vdp_url": "https://dealer.example.ca/inventory/ZFF68NHA5E0190002",
+      "seller_type": "dealer",
+      "inventory_type": "used",
+      "dom": 34,
+      "dom_180": 34,
+      "dom_active": 34,
+      "first_seen_at": 1758000000,
+      "first_seen_at_date": "2025-09-16T05:20:00Z",
+      "first_seen_at_source": 1757900000,
+      "first_seen_at_source_date": "2025-09-15T01:33:20Z",
+      "last_seen_at": 1792600000,
+      "last_seen_at_date": "2026-10-21T12:26:40Z",
+      "source": "dealer.example.ca",
+      "dealer": {
+        "id": 1001,
+        "website": "dealer.example.ca",
+        "name": "Sample Exotics Oakville",
+        "dealer_type": "independent",
+        "city": "Oakville",
+        "state": "ON",
+        "country": "CA",
+        "zip": "M5V 2T6"
+      },
+      "build": {
+        "year": 2014,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Spider"
+      },
+      "dist": 12.4
+    }
+  ]
+}

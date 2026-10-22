@@ -1,0 +1,1 @@
+ALTER TABLE `watchlist` ADD `last_sold_pull` text;

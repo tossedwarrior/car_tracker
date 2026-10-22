@@ -37,6 +37,8 @@ export const watchlist = sqliteTable("watchlist", {
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   // When this car's listings were last refreshed (ISO timestamp).
   lastRefreshed: text("last_refreshed"),
+  // When auction results were last pulled for this car (ISO timestamp).
+  lastSoldPull: text("last_sold_pull"),
   createdAt: createdAt(),
 });
 

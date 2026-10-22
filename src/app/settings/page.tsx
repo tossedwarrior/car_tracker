@@ -1,8 +1,8 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { checkRuns, watchlist } from "@/db/schema";
-import { MAX_PAGES_PER_WATCH, pagesPerWatch } from "@/jobs/budget";
-import { listingSources } from "@/sources";
+import { callsPerWatch } from "@/jobs/budget";
+import { allSources, hasApiKey } from "@/sources";
 import { getUsage, monthKey } from "@/sources/usage";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +16,13 @@ export default function SettingsPage() {
   const watchCount = db.select().from(watchlist).where(eq(watchlist.active, true)).all().length;
   const runs = db.select().from(checkRuns).orderBy(desc(checkRuns.id)).limit(10).all();
 
-  const sources = listingSources.map((s) => {
+  const sources = allSources.map((s) => {
     const used = getUsage(s.id);
-    const pages = pagesPerWatch({ limit: s.monthlyCallLimit, used, watchCount });
-    return { s, used, pages, maxCalls: pages * watchCount, hasKey: !!process.env[s.apiKeyEnv] };
+    const perCar =
+      s.kind === "listings"
+        ? callsPerWatch({ ...s.callsPerWatch, limit: s.monthlyCallLimit, used, watchCount })
+        : 1;
+    return { s, used, perCar, hasKey: hasApiKey(s) };
   });
 
   return (
@@ -34,12 +37,12 @@ export default function SettingsPage() {
               <tr>
                 <th>Source</th>
                 <th>Used this month</th>
-                <th className="num">Refresh all, at most</th>
+                <th className="num">Calls per car, at most</th>
                 <th>API key</th>
               </tr>
             </thead>
             <tbody>
-              {sources.map(({ s, used, pages, maxCalls, hasKey }) => (
+              {sources.map(({ s, used, perCar, hasKey }) => (
                 <tr key={s.id}>
                   <td className="strong">{s.label}</td>
                   <td>
@@ -51,9 +54,11 @@ export default function SettingsPage() {
                     </span>
                   </td>
                   <td className="num">
-                    {maxCalls} call{maxCalls === 1 ? "" : "s"}
+                    {perCar}
                     <div className="muted small">
-                      {pages} page{pages === 1 ? "" : "s"} × {watchCount} car{watchCount === 1 ? "" : "s"}
+                      {s.kind === "listings"
+                        ? `per refresh · ${perCar * watchCount} for all ${watchCount}`
+                        : "per sold-prices update"}
                     </div>
                   </td>
                   <td>{hasKey ? "Set" : <span className="error">Missing ({s.apiKeyEnv})</span>}</td>
@@ -63,9 +68,11 @@ export default function SettingsPage() {
           </table>
         </div>
         <p className="muted small">
-          Listings refresh only when you press Refresh. Each car fetches up to {MAX_PAGES_PER_WATCH} pages
-          (20 listings each) and stops early once it has them all. Each source stops before its free
-          limit; when few calls are left, they are shared so every car gets its newest listings.
+          Nothing runs on its own: listings update when you press Refresh, and auction results when
+          you press Update sold prices on a car. Each source stops before its free limit. Auto.dev
+          fetches up to 5 pages of 20 per car; MarketCheck searches 100 miles around Toronto,
+          Montreal, Vancouver and Calgary (one call each, more if a city has over 50); Old Cars Data
+          returns the latest 20 sold auctions per update on the free plan.
         </p>
       </section>
 

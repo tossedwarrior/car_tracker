@@ -1,0 +1,43 @@
+{
+  "num_found": 1,
+  "listings": [
+    {
+      "id": "mc-van-1",
+      "vin": "ZFF75VFA9F0190003",
+      "heading": "2015 Ferrari 458 Speciale",
+      "price": 899000,
+      "miles": 3100,
+      "msrp": 0,
+      "data_source": "mc",
+      "vdp_url": "https://dealer.example.ca/inventory/ZFF75VFA9F0190003",
+      "seller_type": "fsbo",
+      "inventory_type": "used",
+      "dom": 34,
+      "dom_180": 34,
+      "dom_active": 34,
+      "first_seen_at": 1758000000,
+      "first_seen_at_date": "2025-09-16T05:20:00Z",
+      "first_seen_at_source": 1757900000,
+      "last_seen_at": 1792600000,
+      "last_seen_at_date": "2026-10-21T12:26:40Z",
+      "source": "dealer.example.ca",
+      "dealer": {
+        "id": 1001,
+        "website": "dealer.example.ca",
+        "name": "Sample Exotics Vancouver",
+        "dealer_type": "independent",
+        "city": "Vancouver",
+        "state": "BC",
+        "country": "CA",
+        "zip": "M5V 2T6"
+      },
+      "build": {
+        "year": 2015,
+        "make": "Ferrari",
+        "model": "458 Italia",
+        "trim": "Speciale"
+      },
+      "dist": 12.4
+    }
+  ]
+}

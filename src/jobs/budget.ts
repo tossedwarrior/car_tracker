@@ -1,24 +1,25 @@
-/** Most pages fetched for one watched car in one refresh (5 × 20 = 100 listings). */
-export const MAX_PAGES_PER_WATCH = 5;
-
 /** Local calendar date as YYYY-MM-DD. */
 export const localDate = (now = new Date()) =>
   `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
 /**
- * Pages each watched car gets in one refresh: up to MAX_PAGES_PER_WATCH, but
- * when few calls are left this month, shared evenly so every car still gets
- * at least its first page (newest listings first).
+ * Calls each watched car gets from one source in one refresh: up to the
+ * source's `max`, but when few calls are left this month, shared evenly so
+ * every car still gets the source's `min` (its newest listings).
  */
-export function pagesPerWatch({
+export function callsPerWatch({
+  min,
+  max,
   limit,
   used,
   watchCount,
 }: {
+  min: number;
+  max: number;
   limit: number;
   used: number;
   watchCount: number;
 }): number {
   const perWatch = Math.floor(Math.max(0, limit - used) / Math.max(1, watchCount));
-  return Math.min(MAX_PAGES_PER_WATCH, Math.max(1, perWatch));
+  return Math.min(max, Math.max(min, perWatch));
 }

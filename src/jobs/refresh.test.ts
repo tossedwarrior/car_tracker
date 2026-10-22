@@ -5,7 +5,7 @@ import { checkRuns, listings, watchlist } from "@/db/schema";
 import { autodev } from "@/sources/autodev";
 import { BudgetExceededError, type ListingSource } from "@/sources/types";
 import { fixtureContext } from "@/test/fixtures";
-import { pagesPerWatch } from "./budget";
+import { callsPerWatch } from "./budget";
 import { runRefresh } from "./refresh";
 
 const now = new Date(2026, 9, 22, 7);
@@ -56,7 +56,7 @@ describe("runRefresh", () => {
     expect(result.calls).toBe(0);
   });
 
-  it("skips a source with no API key and reports the refresh as failed", async () => {
+  it("skips a source with no API key; with no other source, nothing ran", async () => {
     const w = addWatch();
     const noKey: ListingSource = { ...autodev, id: "nokey", label: "No Key" };
     const result = await runRefresh({
@@ -83,14 +83,18 @@ describe("runRefresh", () => {
   });
 });
 
-describe("pagesPerWatch", () => {
-  it("gives each car the full 5 pages while calls are plentiful", () => {
-    expect(pagesPerWatch({ limit: 1000, used: 6, watchCount: 8 })).toBe(5);
+describe("callsPerWatch", () => {
+  const autodevCalls = { min: 1, max: 5, limit: 1000, watchCount: 8 };
+  const marketcheckCalls = { min: 4, max: 6, limit: 500, watchCount: 8 };
+
+  it("gives each car the most calls while plenty are left", () => {
+    expect(callsPerWatch({ ...autodevCalls, used: 6 })).toBe(5);
+    expect(callsPerWatch({ ...marketcheckCalls, used: 0 })).toBe(6);
   });
 
-  it("shares the last few calls so every car gets its newest listings", () => {
-    expect(pagesPerWatch({ limit: 1000, used: 976, watchCount: 8 })).toBe(3);
-    expect(pagesPerWatch({ limit: 1000, used: 995, watchCount: 8 })).toBe(1);
-    expect(pagesPerWatch({ limit: 1000, used: 1000, watchCount: 8 })).toBe(1);
+  it("shares the last calls so every car still gets the minimum", () => {
+    expect(callsPerWatch({ ...autodevCalls, used: 976 })).toBe(3);
+    expect(callsPerWatch({ ...autodevCalls, used: 1000 })).toBe(1);
+    expect(callsPerWatch({ ...marketcheckCalls, used: 470 })).toBe(4);
   });
 });

@@ -28,6 +28,12 @@ npm run check-source -- autodev --make Ferrari --model "458 Italia" --years 2011
 `check-source` makes real calls (one per page, `--pages 1` by default). Add
 `--save` to keep the raw response as a fixture.
 
+| Source | What | Free limit | Per car |
+| --- | --- | --- | --- |
+| `autodev` | U.S. dealer listings, USD | 1,000 calls/month | up to 5 pages of 20 per refresh |
+| `marketcheck` | Canadian dealer listings, CAD, 100 miles around Toronto, Montreal, Vancouver and Calgary | 500 calls/month | 4 calls per refresh (one per city), up to 6 |
+| `oldcarsdata` | Sold auction results, any currency | 10 queries/month, latest 20 results each | 1 query per **Update sold prices** |
+
 ## Refreshing listings
 
 Listings only refresh when you ask: the **Refresh all** button on the

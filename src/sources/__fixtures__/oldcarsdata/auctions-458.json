@@ -1,0 +1,99 @@
+{
+  "data": [
+    {
+      "id": 9001,
+      "source": "bringatrailer",
+      "url": "https://auctions.example.com/lot/9001",
+      "title": "2013 Ferrari 458 Italia",
+      "auction_status": "sold",
+      "price": 245000,
+      "currency": "USD",
+      "auction_end_at": "2026-09-14 21:00:00",
+      "auction_end_precision": "exact",
+      "mileage": 12500,
+      "mileage_unit": "miles",
+      "year": 2013,
+      "listing_make": "Ferrari",
+      "listing_model": "458 Italia",
+      "ocd_make_name": "Ferrari",
+      "ocd_model_name": "458",
+      "seller_type": "private",
+      "stats": {
+        "bids": 41
+      }
+    },
+    {
+      "id": 9002,
+      "source": "collectingcars",
+      "url": "https://auctions.example.com/lot/9002",
+      "title": "2014 Ferrari 458 Spider",
+      "auction_status": "sold",
+      "price": 198000,
+      "currency": "GBP",
+      "auction_end_at": "2026-08-30 19:00:00",
+      "auction_end_precision": "exact",
+      "mileage": 18000,
+      "mileage_unit": "km",
+      "year": 2014,
+      "listing_make": "Ferrari",
+      "listing_model": "458 Italia",
+      "ocd_make_name": "Ferrari",
+      "ocd_model_name": "458",
+      "seller_type": "private",
+      "stats": {
+        "bids": 41
+      }
+    },
+    {
+      "id": 9003,
+      "source": "carsandbids",
+      "url": "https://auctions.example.com/lot/9003",
+      "title": "2013 Ferrari 458 Italia",
+      "auction_status": "reserve not met",
+      "price": 230000,
+      "currency": "USD",
+      "auction_end_at": "2026-09-14 21:00:00",
+      "auction_end_precision": "exact",
+      "mileage": 12500,
+      "mileage_unit": "miles",
+      "year": 2013,
+      "listing_make": "Ferrari",
+      "listing_model": "458 Italia",
+      "ocd_make_name": "Ferrari",
+      "ocd_model_name": "458",
+      "seller_type": "private",
+      "stats": {
+        "bids": 41
+      }
+    },
+    {
+      "id": 9004,
+      "source": "rmsothebys",
+      "url": "https://auctions.example.com/lot/9004",
+      "title": "2015 Ferrari 458 Speciale",
+      "auction_status": "sold",
+      "price": 610000,
+      "currency": "USD",
+      "auction_end_at": null,
+      "auction_end_precision": "exact",
+      "mileage": null,
+      "mileage_unit": "miles",
+      "year": 2015,
+      "listing_make": "Ferrari",
+      "listing_model": "458 Italia",
+      "ocd_make_name": "Ferrari",
+      "ocd_model_name": "458",
+      "seller_type": "private",
+      "stats": {
+        "bids": 41
+      },
+      "auction_end_date": "2026-05-02"
+    }
+  ],
+  "meta": {
+    "total": 4,
+    "page": 1,
+    "limit": 20,
+    "total_pages": 1
+  }
+}

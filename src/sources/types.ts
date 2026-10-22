@@ -46,32 +46,76 @@ export interface SourceContext {
 }
 
 export interface SearchOptions {
-  /** Most pages to fetch for one query. Each page is one API call. */
-  maxPages?: number;
+  /** Most API calls (pages) to use for one query. */
+  maxCalls?: number;
 }
 
 export interface SearchResult {
   listings: NormalizedListing[];
   /** API calls this search used. */
   calls: number;
-  /** True if more pages existed than maxPages allowed. */
+  /** True if more pages existed than maxCalls allowed. */
   truncated: boolean;
   /** Total matches the source reports, when it reports one. */
   total: number | null;
 }
 
-export interface ListingSource {
+/** What every API source has, whatever it returns. */
+export interface ApiSource {
   id: string;
   label: string;
   /** Free-plan calls per month. The call counter stops before this. */
   monthlyCallLimit: number;
   /** Name of the env var holding this source's key. */
   apiKeyEnv: string;
+}
+
+/** A source of cars for sale (asking prices). */
+export interface ListingSource extends ApiSource {
+  kind: "listings";
+  /**
+   * Calls one watched car uses per refresh: at least `min` (e.g. one per
+   * city), at most `max` when there are more pages.
+   */
+  callsPerWatch: { min: number; max: number };
   search(
     query: ListingQuery,
     ctx: SourceContext,
     opts?: SearchOptions,
   ): Promise<SearchResult>;
+}
+
+/** One finished auction, in the shape every sold-results source returns. */
+export interface NormalizedSoldResult {
+  source: string;
+  sourceResultId: string;
+  /** Where it sold, e.g. "Bring a Trailer". */
+  auctionHouse: string | null;
+  title: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  km: number | null;
+  price: number;
+  /** ISO 4217, e.g. USD, CAD, GBP, EUR. */
+  currency: string;
+  /** YYYY-MM-DD */
+  soldDate: string;
+  url: string | null;
+}
+
+export interface SoldSearchResult {
+  results: NormalizedSoldResult[];
+  /** Metered API calls this search used. */
+  calls: number;
+  /** The source's own name for the model, when it differs from the watch's. */
+  matchedModel: string | null;
+}
+
+/** A source of auction results (what cars actually sold for). */
+export interface SoldSource extends ApiSource {
+  kind: "sold";
+  search(query: ListingQuery, ctx: SourceContext): Promise<SoldSearchResult>;
 }
 
 export class SourceError extends Error {
