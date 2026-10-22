@@ -15,7 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
-    "check-source": "tsx scripts/check-source.ts"
+    "check-source": "tsx scripts/check-source.ts",
+    "db:seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

@@ -10,6 +10,7 @@ Requires Node 22+.
 npm install
 cp .env.example .env   # then add API keys
 npm run db:migrate     # creates data/tracker.db
+npm run db:seed        # optional: example Ferrari 458 watch + saved listings, no API calls
 npm run dev            # http://localhost:3000
 ```
 
