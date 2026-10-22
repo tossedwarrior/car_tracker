@@ -11,6 +11,9 @@ fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const globalForDb = globalThis as unknown as { sqlite?: Database.Database };
 const sqlite = globalForDb.sqlite ?? new Database(dbPath);
 if (!globalForDb.sqlite) {
+  // Wait for another process instead of failing with "database is locked":
+  // `next build` opens the database from several workers at once.
+  sqlite.pragma("busy_timeout = 10000");
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
   globalForDb.sqlite = sqlite;
