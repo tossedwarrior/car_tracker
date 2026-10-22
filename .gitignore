@@ -1,0 +1,13 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Secrets: API keys live here and are never committed
+.env
+.env.*
+!.env.example
+
+# Local SQLite database
+data/*.db
+data/*.db-*
