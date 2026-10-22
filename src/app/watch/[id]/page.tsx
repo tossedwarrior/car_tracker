@@ -163,6 +163,11 @@ function ListingRow({
             View ad
           </a>
         )}
+        <div className="small">
+          <Link href={`/listing/${l.id}/fix`} className="muted">
+            {l.currencyOverride || l.locationOverride ? "Corrected" : "Fix"}
+          </Link>
+        </div>
       </td>
     </tr>
   );

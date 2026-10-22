@@ -60,6 +60,10 @@ monthly limit. Refreshes and API call counts are on the Settings page.
 - **Alerts** (in the app, with an unread count in the header): new listings
   (not on a source's first search for a car), price drops, and cars at or under
   the target price. Checked on refresh.
+- **Fixing a listing**: sources can get a currency or location wrong (MarketCheck
+  reports every Canadian dealer's price as CAD, even from a U.S. branch). The
+  **Fix** link on a listing corrects them; refreshes keep the correction, and
+  its price history, alerts and this week's market snapshot follow.
 - **CAD/USD**: the switch in the header. Rates come from the Bank of Canada
   (free, no key), updated on refresh; auction sales convert at the rate on the
   day they sold, asking prices at the latest rate.

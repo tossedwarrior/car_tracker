@@ -109,9 +109,13 @@ export function recordListings({
         continue;
       }
 
+      // Corrections made by hand win over what the source says.
+      const currency = existing.currencyOverride ?? l.currency;
+      const location = existing.locationOverride ?? l.location;
+
       if (l.price != null && l.price !== existing.price) {
         tx.insert(priceSnapshots)
-          .values({ listingId: existing.id, date, price: l.price, currency: l.currency })
+          .values({ listingId: existing.id, date, price: l.price, currency })
           .run();
         if (existing.price != null) {
           if (l.price < existing.price) stats.priceDrops++;
@@ -123,6 +127,8 @@ export function recordListings({
       tx.update(listings)
         .set({
           ...fields,
+          currency,
+          location,
           // A source sometimes drops a price it had; keep the last known one.
           price: l.price ?? existing.price,
           lastSeen: date,

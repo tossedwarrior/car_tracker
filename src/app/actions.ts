@@ -95,3 +95,21 @@ export async function markAlertsSeen() {
   markAllAlertsSeen();
   revalidatePath("/", "layout");
 }
+
+export async function fixListing(form: FormData) {
+  const { correctListing } = await import("@/jobs/corrections");
+  const { Rates } = await import("@/lib/fx");
+  const id = Number(form.get("id"));
+  const currency = String(form.get("currency") ?? "");
+  const location = String(form.get("location") ?? "").trim();
+  const listing = correctListing(
+    id,
+    {
+      currency: currency === "CAD" || currency === "USD" ? currency : null,
+      location: location || null,
+    },
+    Rates.load(),
+  );
+  revalidatePath("/", "layout");
+  redirect(`/watch/${listing.watchId}`);
+}

@@ -76,6 +76,10 @@ export const listings = sqliteTable(
     listedAt: text("listed_at"),
     firstSeen: text("first_seen").notNull(),
     lastSeen: text("last_seen").notNull(),
+    // Corrections I made by hand, because a source got them wrong (e.g. a USD
+    // price at a Canadian dealer's U.S. branch). Refreshes keep these.
+    currencyOverride: text("currency_override", { enum: currencies }),
+    locationOverride: text("location_override"),
     // Date this listing's source last completed a full search for its watch.
     // Stops a second run on the same day from counting a miss twice.
     lastChecked: text("last_checked"),
