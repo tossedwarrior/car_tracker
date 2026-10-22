@@ -49,6 +49,21 @@ change). A car missing from refreshes on 3 different days is marked gone.
 Each car fetches up to 5 pages of 20; each source stops before its free
 monthly limit. Refreshes and API call counts are on the Settings page.
 
+## Market, alerts and currency
+
+- **Market trend** (a tab on each car): weekly typical asking price, monthly
+  typical auction sale, cars listed and days listed, over up to 2 years. Each
+  refresh saves this week's snapshot (a later refresh that week replaces it).
+  Rising/flat/cooling = typical price up more than 3% / within 3% / down more
+  than 3% over 3 months, from asking prices once there are 3 months of them,
+  auction sales until then.
+- **Alerts** (in the app, with an unread count in the header): new listings
+  (not on a source's first search for a car), price drops, and cars at or under
+  the target price. Checked on refresh.
+- **CAD/USD**: the switch in the header. Rates come from the Bank of Canada
+  (free, no key), updated on refresh; auction sales convert at the rate on the
+  day they sold, asking prices at the latest rate.
+
 ## Database
 
 SQLite via Drizzle ORM. Schema lives in `src/db/schema.ts`. After changing it:

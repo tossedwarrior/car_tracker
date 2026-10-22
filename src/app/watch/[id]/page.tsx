@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Money } from "@/components/Money";
 import { RefreshButton } from "@/components/RefreshButton";
 import { updatedText, WatchHeader } from "@/components/WatchHeader";
 import { maxRefreshCalls } from "@/jobs/refresh";
 import { getSoldResults } from "@/jobs/sold";
-import { daysSince, formatKm, formatPrice } from "@/lib/format";
+import type { Currency } from "@/db/schema";
+import { getDisplayCurrency } from "@/lib/display-currency";
+import { daysSince, formatKm } from "@/lib/format";
+import { Rates } from "@/lib/fx";
+import { isUnderTarget, showMoney } from "@/lib/money";
 import {
   countGone,
   getListings,
@@ -37,7 +42,14 @@ export default async function WatchListingsPage({
   const query = await searchParams;
   const sort: ListingSort = query.sort && query.sort in listingSorts ? (query.sort as ListingSort) : "price";
   const includeGone = query.gone === "1";
+  const display = await getDisplayCurrency();
+  const rates = Rates.load();
   const rows = getListings(watch.id, { sort, includeGone });
+  if (sort === "price") {
+    // Prices come in CAD and USD, so compare them converted.
+    const cad = (l: Listing) => (l.price == null ? Infinity : (rates.convert(l.price, l.currency, "CAD") ?? l.price));
+    rows.sort((a, b) => cad(a) - cad(b));
+  }
   const goneCount = countGone(watch.id);
   const forSaleCount = includeGone ? rows.length - goneCount : rows.length;
 
@@ -97,7 +109,7 @@ export default async function WatchListingsPage({
             </thead>
             <tbody>
               {rows.map((l) => (
-                <ListingRow key={l.id} listing={l} watch={watch} />
+                <ListingRow key={l.id} listing={l} watch={watch} rates={rates} display={display} />
               ))}
             </tbody>
           </table>
@@ -112,20 +124,25 @@ export default async function WatchListingsPage({
   );
 }
 
-function ListingRow({ listing: l, watch }: { listing: Listing; watch: Watch }) {
+function ListingRow({
+  listing: l,
+  watch,
+  rates,
+  display,
+}: {
+  listing: Listing;
+  watch: Watch;
+  rates: Rates;
+  display: Currency;
+}) {
   const days = daysSince(l.listedAt ?? l.firstSeen);
-  // Until currency conversion lands, only compare prices in the same currency.
-  const underTarget =
-    watch.targetPrice != null &&
-    l.price != null &&
-    l.currency === watch.targetCurrency &&
-    l.price <= watch.targetPrice;
+  const underTarget = l.status === "active" && isUnderTarget(rates, l, watch);
   const gone = l.status === "gone";
 
   return (
     <tr className={gone ? "gone" : undefined}>
-      <td className="num strong">
-        {formatPrice(l.price, l.currency)}
+      <td className="num">
+        <Money shown={showMoney(rates, display, l.price, l.currency)} strong />
         {underTarget && <span className="badge good">Under target</span>}
         {gone && <span className="badge">Gone</span>}
       </td>

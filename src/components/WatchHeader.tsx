@@ -2,7 +2,7 @@ import Link from "next/link";
 import { formatKm, formatPrice, formatYears, timeAgo, watchTitle } from "@/lib/format";
 import type { Watch } from "@/lib/watchlist";
 
-/** Title, criteria and For sale / Sold tabs shared by a watched car's pages. */
+/** Title, criteria and the For sale / Sold / Market tabs shared by a watched car's pages. */
 export function WatchHeader({
   watch,
   tab,
@@ -12,7 +12,7 @@ export function WatchHeader({
   action,
 }: {
   watch: Watch;
-  tab: "listings" | "sold";
+  tab: "listings" | "sold" | "market";
   forSaleCount: number;
   soldCount: number;
   /** e.g. "Refreshed 5 min ago" */
@@ -45,6 +45,9 @@ export function WatchHeader({
         </Link>
         <Link href={`/watch/${watch.id}/sold`} aria-current={tab === "sold" ? "page" : undefined}>
           Sold at auction <span className="count">{soldCount}</span>
+        </Link>
+        <Link href={`/watch/${watch.id}/market`} aria-current={tab === "market" ? "page" : undefined}>
+          Market trend
         </Link>
       </nav>
     </>

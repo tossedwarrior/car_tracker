@@ -9,6 +9,7 @@ import { callsPerWatch } from "./budget";
 import { runRefresh } from "./refresh";
 
 const now = new Date(2026, 9, 22, 7);
+const syncFx = async () => 0;
 const addWatch = (values: Partial<typeof watchlist.$inferInsert> = {}) =>
   db
     .insert(watchlist)
@@ -25,7 +26,7 @@ describe("runRefresh", () => {
       { fixture: "autodev/search-page1.json" },
       { fixture: "autodev/search-page2.json" },
     ]);
-    const result = await runRefresh({ watchIds: [w.id], now, sources: [autodev], contextFor: () => ctx });
+    const result = await runRefresh({ watchIds: [w.id], now, sources: [autodev], contextFor: () => ctx, syncFx });
 
     expect(result.status).toBe("ok");
     expect(result.calls).toBe(2);
@@ -51,6 +52,7 @@ describe("runRefresh", () => {
       now,
       sources: [autodev],
       contextFor: () => fixtureContext([]),
+      syncFx,
     });
     expect(result.log).toEqual(["No active watched cars."]);
     expect(result.calls).toBe(0);
@@ -66,6 +68,7 @@ describe("runRefresh", () => {
       contextFor: () => {
         throw new Error("NOKEY_API_KEY is not set in .env");
       },
+      syncFx,
     });
     expect(result.status).toBe("failed");
     expect(result.log[0]).toBe("No Key: skipped, NOKEY_API_KEY is not set in .env.");
@@ -77,7 +80,7 @@ describe("runRefresh", () => {
     ctx.beforeCall = () => {
       throw new BudgetExceededError("autodev", 1000, 1000);
     };
-    const result = await runRefresh({ watchIds: [w.id], now, sources: [autodev], contextFor: () => ctx });
+    const result = await runRefresh({ watchIds: [w.id], now, sources: [autodev], contextFor: () => ctx, syncFx });
     expect(result.status).toBe("failed");
     expect(result.log.join("\n")).toContain("stopped, autodev has used 1000 of 1000 free calls this month.");
   });

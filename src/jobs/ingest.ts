@@ -8,6 +8,8 @@ export const MISSES_UNTIL_GONE = 3;
 
 export interface IngestStats {
   added: number;
+  /** Listing ids added by this call, for new-listing alerts. */
+  addedIds: number[];
   updated: number;
   /** Seen through another source, matched by VIN. */
   matchedByVin: number;
@@ -48,6 +50,7 @@ export function recordListings({
 }): IngestStats {
   const stats: IngestStats = {
     added: 0,
+    addedIds: [],
     updated: 0,
     matchedByVin: 0,
     priceDrops: 0,
@@ -90,6 +93,7 @@ export function recordListings({
             .run();
         }
         stats.added++;
+        stats.addedIds.push(row.id);
         continue;
       }
 

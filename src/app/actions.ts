@@ -62,7 +62,10 @@ export interface SoldPullState {
 
 export async function pullSold(_prev: SoldPullState, form: FormData): Promise<SoldPullState> {
   const { pullSoldResults } = await import("@/jobs/sold");
+  const { syncRates } = await import("@/lib/fx");
   const watchId = Number(form.get("watchId"));
+  // Sales are converted at their sale-date rate; keep rates current.
+  await syncRates().catch(() => {});
   try {
     const r = await pullSoldResults(watchId);
     revalidatePath(`/watch/${watchId}`, "layout");
@@ -74,4 +77,21 @@ export async function pullSold(_prev: SoldPullState, form: FormData): Promise<So
   } catch (e) {
     return { error: (e as Error).message };
   }
+}
+
+export async function setDisplayCurrency(form: FormData) {
+  const { cookies } = await import("next/headers");
+  const { DISPLAY_COOKIE, parseDisplayCurrency } = await import("@/lib/money");
+  (await cookies()).set(DISPLAY_COOKIE, parseDisplayCurrency(String(form.get("currency"))), {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365 * 5,
+    sameSite: "lax",
+  });
+  revalidatePath("/", "layout");
+}
+
+export async function markAlertsSeen() {
+  const { markAllAlertsSeen } = await import("@/jobs/alerts");
+  markAllAlertsSeen();
+  revalidatePath("/", "layout");
 }

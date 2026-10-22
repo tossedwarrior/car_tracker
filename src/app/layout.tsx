@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CurrencyToggle } from "@/components/CurrencyToggle";
+import { countUnseenAlerts } from "@/jobs/alerts";
+import { getDisplayCurrency } from "@/lib/display-currency";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,7 +10,10 @@ export const metadata: Metadata = {
   description: "Tracks asking and sold prices for the exotics I'm watching.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const currency = await getDisplayCurrency();
+  const unseenAlerts = countUnseenAlerts();
+
   return (
     <html lang="en">
       <body>
@@ -18,8 +24,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <nav>
               <Link href="/">Watchlist</Link>
+              <Link href="/alerts">
+                Alerts
+                {unseenAlerts > 0 && (
+                  <span className="nav-count" aria-label={`${unseenAlerts} not seen`}>
+                    {unseenAlerts}
+                  </span>
+                )}
+              </Link>
               <Link href="/settings">Settings</Link>
             </nav>
+            <CurrencyToggle current={currency} />
           </div>
         </header>
         <main>{children}</main>

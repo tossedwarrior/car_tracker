@@ -1,10 +1,13 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { checkRuns, watchlist } from "@/db/schema";
+import { checkRuns, listings, watchlist } from "@/db/schema";
 import { watchTitle } from "@/lib/format";
 import { liveContext, listingSources } from "@/sources";
 import { BudgetExceededError, type ListingSource, type SourceContext } from "@/sources/types";
+import { Rates, syncRates } from "@/lib/fx";
 import { getUsage } from "@/sources/usage";
+import { recordAlerts, type AlertCounts } from "./alerts";
+import { takeMarketSnapshot } from "./market";
 import { callsPerWatch, localDate } from "./budget";
 import { recordListings, type IngestStats } from "./ingest";
 
@@ -15,6 +18,8 @@ export interface RefreshOptions {
   sources?: ListingSource[];
   /** How each source reaches its API. Tests swap in saved responses. */
   contextFor?: (source: ListingSource) => SourceContext;
+  /** Update exchange rates first. Tests pass a no-op. */
+  syncFx?: () => Promise<unknown>;
 }
 
 export interface RefreshResult {
@@ -33,6 +38,7 @@ export async function runRefresh({
   now = new Date(),
   sources = listingSources,
   contextFor = liveContext,
+  syncFx = syncRates,
 }: RefreshOptions = {}): Promise<RefreshResult> {
   const date = localDate(now);
   const log: string[] = [];
@@ -58,6 +64,17 @@ export async function runRefresh({
   if (watches.length === 0) log.push("No active watched cars.");
   const refreshed = new Set<number>();
 
+  // Exchange rates are free and unmetered; if they can't be fetched, the
+  // latest saved ones are used.
+  if (watches.length) {
+    try {
+      await syncFx();
+    } catch (e) {
+      log.push(`Exchange rates not updated: ${(e as Error).message}`);
+    }
+  }
+  const rates = Rates.load();
+
   for (const source of watches.length ? sources : []) {
     let ctx: SourceContext;
     try {
@@ -80,6 +97,11 @@ export async function runRefresh({
     for (const watch of watches) {
       const name = watchTitle(watch);
       try {
+        const firstSearch = !db
+          .select({ id: listings.id })
+          .from(listings)
+          .where(and(eq(listings.watchId, watch.id), eq(listings.source, source.id)))
+          .get();
         const result = await source.search(watch, ctx, { maxCalls });
         calls += result.calls;
         const stats = recordListings({
@@ -89,8 +111,16 @@ export async function runRefresh({
           date,
           complete: !result.truncated,
         });
+        const alerts = recordAlerts({
+          watchId: watch.id,
+          source: source.id,
+          date,
+          rates,
+          newListingIds: stats.addedIds,
+          firstSearch,
+        });
         refreshed.add(watch.id);
-        log.push(`  ${name}: ${describe(stats, result)}`);
+        log.push(`  ${name}: ${describe(stats, result, alerts)}`);
       } catch (e) {
         problems++;
         if (e instanceof BudgetExceededError) {
@@ -101,6 +131,8 @@ export async function runRefresh({
       }
     }
   }
+
+  for (const id of refreshed) takeMarketSnapshot(id, rates, now);
 
   const finishedAt = new Date().toISOString();
   if (refreshed.size) {
@@ -135,6 +167,7 @@ export function maxRefreshCalls(watchCount: number): number {
 function describe(
   s: IngestStats,
   r: { listings: unknown[]; calls: number; truncated: boolean; total: number | null },
+  a: AlertCounts,
 ): string {
   const parts = [`${r.listings.length} found`];
   if (r.total != null && r.total !== r.listings.length) parts.push(`source reported ${r.total}`);
@@ -145,6 +178,8 @@ function describe(
   if (s.matchedByVin) parts.push(`${s.matchedByVin} also on another source`);
   if (s.missed) parts.push(`${s.missed} missing`);
   if (s.gone) parts.push(`${s.gone} marked gone`);
+  const alerts = a.new_listing + a.price_drop + a.under_target;
+  if (alerts) parts.push(`${alerts} alert(s)`);
   parts.push(`${r.calls} call(s)`);
   if (r.truncated) parts.push("more pages not fetched, so missing cars aren't counted");
   return parts.join(", ") + ".";

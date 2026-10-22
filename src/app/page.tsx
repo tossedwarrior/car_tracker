@@ -1,13 +1,26 @@
 import Link from "next/link";
+import { Money } from "@/components/Money";
 import { RefreshButton } from "@/components/RefreshButton";
+import { getMarketHistory } from "@/jobs/market";
 import { maxRefreshCalls } from "@/jobs/refresh";
-import { formatKm, formatPrice, formatYears, timeAgo, watchTitle } from "@/lib/format";
+import { getDisplayCurrency } from "@/lib/display-currency";
+import { formatKm, formatYears, timeAgo, watchTitle } from "@/lib/format";
+import { Rates } from "@/lib/fx";
+import { showMoney, type Shown } from "@/lib/money";
 import { listWatches } from "@/lib/watchlist";
 
 export const dynamic = "force-dynamic";
 
-export default function WatchlistPage() {
+export default async function WatchlistPage() {
   const watches = listWatches();
+  const display = await getDisplayCurrency();
+  const rates = Rates.load();
+  const show = (amount: number | null, currency: string) => showMoney(rates, display, amount, currency);
+  /** Cheapest across currencies, compared in the display currency. */
+  const lowest = (prices: Array<{ price: number; currency: string }>): Shown | null =>
+    prices
+      .map((p) => show(p.price, p.currency))
+      .sort((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity))[0] ?? null;
   const activeCount = watches.filter((w) => w.active).length;
 
   return (
@@ -42,6 +55,7 @@ export default function WatchlistPage() {
                 <th className="num">Target</th>
                 <th className="num">For sale</th>
                 <th className="num">Lowest ask</th>
+                <th>Market</th>
                 <th>Refreshed</th>
               </tr>
             </thead>
@@ -56,13 +70,27 @@ export default function WatchlistPage() {
                   <td>{formatYears(w.yearMin, w.yearMax)}</td>
                   <td>{w.maxKm ? `Under ${formatKm(w.maxKm)}` : "Any"}</td>
                   <td className="num">
-                    {w.targetPrice ? formatPrice(w.targetPrice, w.targetCurrency) : "—"}
+                    {w.targetPrice ? <Money shown={show(w.targetPrice, w.targetCurrency)} /> : "—"}
                   </td>
                   <td className="num">{w.activeCount}</td>
                   <td className="num">
-                    {w.lowest.length
-                      ? w.lowest.map((l) => formatPrice(l.price, l.currency)).join(" · ")
-                      : "—"}
+                    {(() => {
+                      const low = lowest(w.lowest);
+                      return low ? <Money shown={low} /> : "—";
+                    })()}
+                  </td>
+                  <td>
+                    {(() => {
+                      const { trend } = getMarketHistory(w, rates);
+                      if (!trend.label) return <span className="muted">Not enough history</span>;
+                      const arrow = { rising: "↑", flat: "→", cooling: "↓" }[trend.label];
+                      return (
+                        <Link href={`/watch/${w.id}/market`}>
+                          <span aria-hidden="true">{arrow}</span>{" "}
+                          {trend.label[0].toUpperCase() + trend.label.slice(1)}
+                        </Link>
+                      );
+                    })()}
                   </td>
                   <td className="muted">{w.lastRefreshed ? timeAgo(w.lastRefreshed) : "Never"}</td>
                 </tr>

@@ -104,3 +104,6 @@ Keep every data source behind its own adapter so sources can be added or swapped
 
 - **Runs locally** on SQLite rather than a hosted app (step 1).
 - **No daily job (Oct 22, 2026).** Listings refresh only when I ask: Refresh all on the watchlist, Refresh on a car's page, or `npm run refresh`. Each car fetches up to 5 pages of 20 listings; each source stops before its free monthly limit. A listing is marked gone after missing from refreshes on 3 different days. Weekly market snapshots and monthly auction pulls should also happen on refresh rather than on a schedule.
+- **Sold prices on request (step 5).** Old Cars Data's free plan allows 10 queries a month and returns only the latest 20 sales per query, with no historical archive. Auction results are pulled with an "Update sold prices" button on each car rather than monthly, and the 2-year sale-price history builds up over time instead of filling on day one.
+- **Alerts in the app (step 6).** Alerts show on an Alerts page with an unread count in the header. Email or phone notifications are still an open question.
+- **Exchange rates from the Bank of Canada (step 6).** Free, no key, daily. A CAD/USD switch in the header picks the display currency.

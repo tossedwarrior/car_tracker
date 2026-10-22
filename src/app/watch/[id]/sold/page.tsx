@@ -1,34 +1,39 @@
 import { notFound } from "next/navigation";
+import { Money } from "@/components/Money";
 import { SoldPullButton } from "@/components/SoldPullButton";
 import { updatedText, WatchHeader } from "@/components/WatchHeader";
 import { getSoldResults, median } from "@/jobs/sold";
+import { getDisplayCurrency } from "@/lib/display-currency";
 import { formatKm, formatPrice } from "@/lib/format";
+import { Rates } from "@/lib/fx";
+import { showMoney } from "@/lib/money";
 import { getListings, getWatch } from "@/lib/watchlist";
 import { hasApiKey, soldSources } from "@/sources";
 import { getUsage } from "@/sources/usage";
 
 export const dynamic = "force-dynamic";
 
-/** Median price per currency, most common currency first. */
-function mediansByCurrency(rows: Array<{ price: number | null; currency: string }>) {
-  const groups = new Map<string, number[]>();
-  for (const r of rows) {
-    if (r.price == null) continue;
-    groups.set(r.currency, [...(groups.get(r.currency) ?? []), r.price]);
-  }
-  return [...groups.entries()]
-    .sort((a, b) => b[1].length - a[1].length)
-    .map(([currency, prices]) => ({ currency, count: prices.length, median: median(prices)! }));
-}
-
 export default async function SoldPricesPage({ params }: { params: Promise<{ id: string }> }) {
   const watch = getWatch(Number((await params).id));
   if (!watch) notFound();
 
-  const sold = getSoldResults(watch);
+  const display = await getDisplayCurrency();
+  const rates = Rates.load();
+  const sold = getSoldResults(watch).map((r) => ({
+    ...r,
+    // Each sale converted at the rate on the day it sold.
+    shown: showMoney(rates, display, r.price, r.currency, r.soldDate),
+  }));
   const forSale = getListings(watch.id);
-  const soldMedians = mediansByCurrency(sold);
-  const askMedians = mediansByCurrency(forSale);
+
+  const values = (xs: Array<number | null>) => xs.filter((v): v is number => v != null);
+  const typicalSale = median(values(sold.map((r) => r.shown.value)));
+  const typicalAsk = median(
+    values(forSale.map((l) => showMoney(rates, display, l.price, l.currency).value)),
+  );
+  const pricedAsks = forSale.filter((l) => l.price != null).length;
+  const gap = typicalSale && typicalAsk ? (typicalAsk - typicalSale) / typicalSale : null;
+
   const source = soldSources[0];
   const callsLeft = source.monthlyCallLimit - getUsage(source.id);
   const keySet = hasApiKey(source);
@@ -51,30 +56,34 @@ export default async function SoldPricesPage({ params }: { params: Promise<{ id:
         </p>
       )}
 
-      {sold.length > 0 && (
+      {typicalSale != null && (
         <div className="tiles">
-          {soldMedians.map((m) => {
-            const ask = askMedians.find((a) => a.currency === m.currency);
-            const gap = ask ? (ask.median - m.median) / m.median : null;
-            return (
-              <div className="tile" key={m.currency}>
-                <div className="muted small">Typical sale, {m.currency}</div>
-                <div className="tile-value">{formatPrice(m.median, m.currency)}</div>
-                <div className="muted small">
-                  median of {m.count} sale{m.count === 1 ? "" : "s"}
-                </div>
-                {ask && gap != null && (
-                  <div className="small">
-                    Asking: {formatPrice(ask.median, ask.currency)}{" "}
-                    <span className={gap > 0 ? "error" : "good"}>
-                      ({gap > 0 ? "+" : ""}
-                      {Math.round(gap * 100)}% vs sold)
-                    </span>
-                  </div>
-                )}
+          <div className="tile">
+            <div className="muted small">Typical sale</div>
+            <div className="tile-value">{formatPrice(typicalSale, display)}</div>
+            <div className="muted small">
+              median of {sold.length} sale{sold.length === 1 ? "" : "s"}
+            </div>
+          </div>
+          {typicalAsk != null && (
+            <div className="tile">
+              <div className="muted small">Typical asking price</div>
+              <div className="tile-value">{formatPrice(typicalAsk, display)}</div>
+              <div className="muted small">median of {pricedAsks} priced listings</div>
+            </div>
+          )}
+          {gap != null && (
+            <div className="tile">
+              <div className="muted small">Asking vs sold</div>
+              <div className={`tile-value ${gap > 0 ? "error" : "good"}`}>
+                {gap > 0 ? "+" : ""}
+                {Math.round(gap * 100)}%
               </div>
-            );
-          })}
+              <div className="muted small">
+                {gap > 0 ? "Dealers ask more than cars sell for" : "Asking prices are below recent sales"}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -108,7 +117,9 @@ export default async function SoldPricesPage({ params }: { params: Promise<{ id:
                       dateStyle: "medium",
                     })}
                   </td>
-                  <td className="num strong">{formatPrice(r.price, r.currency)}</td>
+                  <td className="num">
+                    <Money shown={r.shown} strong />
+                  </td>
                   <td>{r.title}</td>
                   <td className="num">{formatKm(r.km)}</td>
                   <td>{r.auctionHouse ?? "—"}</td>
@@ -127,9 +138,9 @@ export default async function SoldPricesPage({ params }: { params: Promise<{ id:
       )}
       <p className="muted small">
         Sales of any {watch.make} {watch.model} from {watch.yearMin} to {watch.yearMax}, whatever
-        the mileage or trim. Comparisons are only made within the same currency. The free Old Cars
-        Data plan returns the latest 20 sales per update; {Math.max(0, callsLeft)} of{" "}
-        {source.monthlyCallLimit} updates left this month.
+        the mileage or trim. Sales are converted at the Bank of Canada rate on the day they sold;
+        asking prices at the latest rate. The free Old Cars Data plan returns the latest 20 sales per
+        update; {Math.max(0, callsLeft)} of {source.monthlyCallLimit} updates left this month.
       </p>
     </>
   );
