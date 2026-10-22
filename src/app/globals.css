@@ -219,3 +219,8 @@ tr.unseen td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
   position: absolute; z-index: 2; pointer-events: none;
   transform: translate(-50%, calc(-100% - 14px)); min-width: 220px; max-width: 300px;
 }
+.sort-menu { display: inline-flex; align-items: center; gap: 8px; }
+.sort-menu select {
+  font: inherit; color: var(--fg); background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px;
+}

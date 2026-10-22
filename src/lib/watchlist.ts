@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { currencies, listings, watchlist, type Currency } from "@/db/schema";
+import type { Rates } from "./fx";
 
 export type Watch = typeof watchlist.$inferSelect;
 export type WatchInput = Omit<Watch, "id" | "createdAt" | "active" | "lastRefreshed" | "lastSoldPull">;
@@ -118,14 +119,17 @@ export function listWatches(): WatchSummary[] {
   }));
 }
 
+/** Sort options, in menu order. Missing prices and mileages always go last. */
 export const listingSorts = {
-  price: { label: "Price", order: [sql`${listings.price} is null`, asc(listings.price)] },
+  price: { label: "Price: low to high", order: [sql`${listings.price} is null`, asc(listings.price)] },
+  "price-desc": { label: "Price: high to low", order: [sql`${listings.price} is null`, desc(listings.price)] },
+  km: { label: "Mileage: low to high", order: [sql`${listings.km} is null`, asc(listings.km)] },
+  "km-desc": { label: "Mileage: high to low", order: [sql`${listings.km} is null`, desc(listings.km)] },
   newest: {
-    label: "Newest",
+    label: "Newest listed",
     order: [desc(sql`coalesce(${listings.listedAt}, ${listings.firstSeen})`)],
   },
-  km: { label: "Mileage", order: [sql`${listings.km} is null`, asc(listings.km)] },
-  year: { label: "Year", order: [desc(listings.year), asc(listings.price)] },
+  year: { label: "Year: newest first", order: [desc(listings.year), asc(listings.price)] },
 } as const;
 export type ListingSort = keyof typeof listingSorts;
 
@@ -143,6 +147,24 @@ export function getListings(
     )
     .orderBy(...listingSorts[sort].order)
     .all();
+}
+
+/**
+ * Sort by price across currencies (SQL can only compare the raw numbers),
+ * converted to CAD at the latest rate. Listings without a price go last.
+ */
+export function sortByPrice<T extends { price: number | null; currency: string }>(
+  rows: T[],
+  rates: Rates,
+  direction: "asc" | "desc",
+): T[] {
+  const cad = (l: T) => (l.price == null ? null : (rates.convert(l.price, l.currency, "CAD") ?? l.price));
+  return [...rows].sort((a, b) => {
+    const x = cad(a);
+    const y = cad(b);
+    if (x == null || y == null) return (x == null ? 1 : 0) - (y == null ? 1 : 0);
+    return direction === "asc" ? x - y : y - x;
+  });
 }
 
 export function countGone(watchId: number): number {

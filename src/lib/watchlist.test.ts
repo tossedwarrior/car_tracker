@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseWatchForm } from "./watchlist";
+import { Rates } from "./fx";
+import { parseWatchForm, sortByPrice } from "./watchlist";
 
 const now = new Date("2026-10-22");
 const form = (fields: Record<string, string>) => {
@@ -49,5 +50,30 @@ describe("parseWatchForm", () => {
   it("rejects years outside 1950 to next year", () => {
     const result = parseWatchForm(form({ make: "Ferrari", model: "F40", yearMin: "1949", yearMax: "2028" }), now);
     expect(!result.ok && result.errors.yearMin).toBeTruthy();
+  });
+});
+
+describe("sortByPrice", () => {
+  const rates = new Rates([{ date: "2026-01-01", base: "USD", rate: 1.4 }]);
+  const rows = [
+    { id: "CA$300k", price: 300000, currency: "CAD" },
+    { id: "no price", price: null, currency: "CAD" },
+    { id: "US$200k = CA$280k", price: 200000, currency: "USD" },
+    { id: "CA$290k", price: 290000, currency: "CAD" },
+  ];
+
+  it("compares CAD and USD prices converted, with no-price listings last both ways", () => {
+    expect(sortByPrice(rows, rates, "asc").map((r) => r.id)).toEqual([
+      "US$200k = CA$280k",
+      "CA$290k",
+      "CA$300k",
+      "no price",
+    ]);
+    expect(sortByPrice(rows, rates, "desc").map((r) => r.id)).toEqual([
+      "CA$300k",
+      "CA$290k",
+      "US$200k = CA$280k",
+      "no price",
+    ]);
   });
 });

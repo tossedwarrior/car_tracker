@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Money } from "@/components/Money";
 import { RefreshButton } from "@/components/RefreshButton";
+import { SortMenu } from "@/components/SortMenu";
 import { updatedText, WatchHeader } from "@/components/WatchHeader";
 import { maxRefreshCalls } from "@/jobs/refresh";
 import { getSoldResults } from "@/jobs/sold";
@@ -15,6 +16,7 @@ import {
   getListings,
   getWatch,
   listingSorts,
+  sortByPrice,
   type Listing,
   type ListingSort,
   type Watch,
@@ -44,11 +46,10 @@ export default async function WatchListingsPage({
   const includeGone = query.gone === "1";
   const display = await getDisplayCurrency();
   const rates = Rates.load();
-  const rows = getListings(watch.id, { sort, includeGone });
-  if (sort === "price") {
-    // Prices come in CAD and USD, so compare them converted.
-    const cad = (l: Listing) => (l.price == null ? Infinity : (rates.convert(l.price, l.currency, "CAD") ?? l.price));
-    rows.sort((a, b) => cad(a) - cad(b));
+  let rows = getListings(watch.id, { sort, includeGone });
+  // Prices come in CAD and USD, so compare them converted.
+  if (sort === "price" || sort === "price-desc") {
+    rows = sortByPrice(rows, rates, sort === "price" ? "asc" : "desc");
   }
   const goneCount = countGone(watch.id);
   const forSaleCount = includeGone ? rows.length - goneCount : rows.length;
@@ -74,13 +75,14 @@ export default async function WatchListingsPage({
       />
 
       <div className="toolbar">
-        <nav className="segmented" aria-label="Sort listings">
-          {(Object.keys(listingSorts) as ListingSort[]).map((key) => (
-            <Link key={key} href={href({ sort: key })} aria-current={key === sort ? "true" : undefined}>
-              {listingSorts[key].label}
-            </Link>
-          ))}
-        </nav>
+        <SortMenu
+          current={sort}
+          options={(Object.keys(listingSorts) as ListingSort[]).map((key) => ({
+            value: key,
+            label: listingSorts[key].label,
+            href: href({ sort: key }),
+          }))}
+        />
         {goneCount > 0 && (
           <Link href={href({ gone: !includeGone })} className="muted">
             {includeGone ? "Hide" : "Show"} {goneCount} gone
