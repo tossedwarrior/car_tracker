@@ -51,8 +51,9 @@ monthly limit. Refreshes and API call counts are on the Settings page.
 
 ## Market, alerts and currency
 
-- **Market trend** (a tab on each car): weekly typical asking price, monthly
-  typical auction sale, cars listed and days listed, over up to 2 years. Each
+- **Market trend** (a tab on each car): every auction sale as a dot (hover for
+  the car, click to open the sale) with a monthly median sale trend line, the
+  weekly typical asking price, cars listed and days listed, over up to 2 years. Each
   refresh saves this week's snapshot (a later refresh that week replaces it).
   Rising/flat/cooling = typical price up more than 3% / within 3% / down more
   than 3% over 3 months, from asking prices once there are 3 months of them,

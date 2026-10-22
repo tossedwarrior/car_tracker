@@ -213,3 +213,9 @@ header.site .inner > form { margin-left: auto; }
 .badge.inline { display: inline-block; margin: 0; }
 tr.unseen td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: middle; }
+.dot-key { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; }
+.chart-plot { position: relative; }
+.chart-tooltip-float {
+  position: absolute; z-index: 2; pointer-events: none;
+  transform: translate(-50%, calc(-100% - 14px)); min-width: 220px; max-width: 300px;
+}

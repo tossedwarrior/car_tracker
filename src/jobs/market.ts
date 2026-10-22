@@ -99,9 +99,21 @@ export function trendOf(points: Point[]): { label: TrendLabel; change: number } 
   return { label, change };
 }
 
+/** One auction sale, for plotting each sale as its own dot. */
+export interface SalePoint extends Point {
+  /** Value is in CAD at the sale-date rate; this is what it sold for. */
+  price: number;
+  currency: string;
+  title: string;
+  auctionHouse: string | null;
+  url: string | null;
+}
+
 export interface MarketHistory {
   /** Weekly typical asking price (CAD). */
   ask: Point[];
+  /** Every auction sale in the window, oldest first. */
+  sales: SalePoint[];
   /** Monthly typical auction sale (CAD, at each sale's rate), with sale counts. */
   sold: Array<Point & { count: number }>;
   /** Weekly number of cars listed. */
@@ -126,13 +138,24 @@ export function getMarketHistory(
     .all();
 
   const byMonth = new Map<string, number[]>();
+  const sales: SalePoint[] = [];
   for (const r of getSoldResults(watch)) {
     if (r.soldDate < since) continue;
     const cad = rates.convert(r.price, r.currency, MARKET_CURRENCY, r.soldDate);
     if (cad == null) continue;
     const month = r.soldDate.slice(0, 7);
     byMonth.set(month, [...(byMonth.get(month) ?? []), cad]);
+    sales.push({
+      date: r.soldDate,
+      value: cad,
+      price: r.price,
+      currency: r.currency,
+      title: r.title,
+      auctionHouse: r.auctionHouse,
+      url: r.url,
+    });
   }
+  sales.reverse();
   const sold = [...byMonth.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, prices]) => ({ date: `${month}-15`, value: median(prices)!, count: prices.length }));
@@ -160,5 +183,5 @@ export function getMarketHistory(
             "auction sales cover only what Old Cars Data has returned so far.",
         };
 
-  return { ask, sold, listed, daysListed, trend };
+  return { ask, sales, sold, listed, daysListed, trend };
 }

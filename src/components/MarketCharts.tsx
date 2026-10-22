@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import {
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ResponsiveContainer,
+  Scatter,
   Tooltip,
   XAxis,
   YAxis,
@@ -16,6 +19,15 @@ export interface ChartPoint {
   v: number;
   /** Sales behind a monthly median. */
   count?: number;
+}
+
+/** One auction sale, plotted as its own dot. */
+export interface SaleDot extends ChartPoint {
+  title: string;
+  /** What it sold for, when that's in another currency. */
+  original: string | null;
+  auctionHouse: string | null;
+  url: string | null;
 }
 
 interface Series {
@@ -35,6 +47,15 @@ const fmtTick = (t: number) => new Date(t).toLocaleDateString("en-CA", { month: 
 function compactMoney(currency: string) {
   const f = new Intl.NumberFormat("en-CA", { notation: "compact", maximumFractionDigits: 1 });
   return (v: number) => `${currency === "USD" ? "US$" : "CA$"}${f.format(v)}`;
+}
+
+/** 0 up to past `max` in round steps (1, 2, 2.5 or 5 × a power of ten), about 4 of them. */
+function niceTicks(max: number): number[] {
+  if (max <= 0) return [0, 1];
+  const rough = max / 4;
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= rough)!;
+  return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
 }
 
 /** Month ticks spread across the domain, at most ~6. */
@@ -187,12 +208,202 @@ function TimeChart({
   );
 }
 
+type PriceDatum =
+  | (ChartPoint & { kind: "ask" })
+  | (ChartPoint & { kind: "month" })
+  | (SaleDot & { kind: "sale" });
+
+/** Recharts passes the hovered datum on `payload`. */
+function SaleShape(props: { cx?: number; cy?: number; payload?: SaleDot }) {
+  const { cx, cy, payload } = props;
+  if (cx == null || cy == null) return <g />;
+  return (
+    <g style={{ cursor: payload?.url ? "pointer" : "default" }}>
+      {/* Bigger than the dot, so it's easy to hover. */}
+      <circle cx={cx} cy={cy} r={12} fill="transparent" />
+      <circle
+        cx={cx}
+        cy={cy}
+        r={4}
+        fill="var(--series-2)"
+        fillOpacity={0.7}
+        stroke="var(--chart-surface)"
+        strokeWidth={2}
+      />
+    </g>
+  );
+}
+
+function PriceTooltip({ datum, format }: { datum?: PriceDatum; format: (v: number) => string }) {
+  if (!datum) return null;
+  const color = datum.kind === "ask" ? "var(--series-1)" : "var(--series-2)";
+  return (
+    <div className="chart-tooltip">
+      <div className="chart-tooltip-row">
+        <span className={datum.kind === "sale" ? "dot-key" : "line-key"} style={{ background: color }} />
+        <span>
+          <strong>{format(datum.v)}</strong>{" "}
+          <span className="muted">
+            {datum.kind === "ask"
+              ? "typical asking"
+              : datum.kind === "month"
+                ? `monthly median · ${datum.count} sale${datum.count === 1 ? "" : "s"}`
+                : (datum.original ?? "")}
+          </span>
+        </span>
+      </div>
+      {datum.kind === "sale" && <div>{datum.title}</div>}
+      <div className="muted small">
+        {datum.kind === "sale"
+          ? [datum.auctionHouse, fmtDate(datum.t)].filter(Boolean).join(" · ")
+          : datum.kind === "month"
+            ? fmtDate(datum.t, true)
+            : `week of ${fmtDate(datum.t)}`}
+      </div>
+      {datum.kind === "sale" && datum.url && <div className="muted small">Click to open the sale</div>}
+    </div>
+  );
+}
+
+function PriceChart({
+  currency,
+  start,
+  end,
+  ask,
+  sold,
+  sales,
+  format,
+}: {
+  currency: string;
+  start: number;
+  end: number;
+  ask: ChartPoint[];
+  sold: ChartPoint[];
+  sales: SaleDot[];
+  format: (v: number) => string;
+}) {
+  const askData = ask.map((p) => ({ ...p, kind: "ask" as const }));
+  const monthData = sold.map((p) => ({ ...p, kind: "month" as const }));
+  const saleData = sales.map((p) => ({ ...p, kind: "sale" as const }));
+  const hasData = askData.length + saleData.length > 0;
+  // Sale dots get their own tooltip: Recharts would otherwise show the line under the pointer.
+  const [hovered, setHovered] = useState<{ datum: PriceDatum; x: number; y: number } | null>(null);
+  const yTicks = niceTicks(Math.max(0, ...askData.map((d) => d.v), ...saleData.map((d) => d.v)));
+
+  return (
+    <figure className="chart">
+      <figcaption>
+        <span className="chart-title">Price ({currency})</span>
+        <span className="legend">
+          <span>
+            <span className="dot-key" style={{ background: "var(--series-2)" }} /> Each auction sale
+          </span>
+          <span>
+            <span className="line-key" style={{ background: "var(--series-2)" }} /> Monthly median sale
+          </span>
+          <span>
+            <span className="line-key" style={{ background: "var(--series-1)" }} /> Typical asking, weekly
+          </span>
+        </span>
+      </figcaption>
+      {hasData ? (
+        <div className="chart-plot" onMouseLeave={() => setHovered(null)}>
+          {hovered && (
+            <div className="chart-tooltip-float" style={{ left: hovered.x, top: hovered.y }}>
+              <PriceTooltip datum={hovered.datum} format={format} />
+            </div>
+          )}
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+              <XAxis
+                dataKey="t"
+                type="number"
+                scale="time"
+                domain={[start, end]}
+                ticks={monthTicks(start, end)}
+                tickFormatter={fmtTick}
+                stroke="var(--chart-axis)"
+                tick={{ fill: "var(--chart-ink)", fontSize: 12 }}
+                tickLine={false}
+                allowDuplicatedCategory={false}
+              />
+              <YAxis
+                dataKey="v"
+                width={64}
+                tickFormatter={compactMoney(currency)}
+                stroke="none"
+                tick={{ fill: "var(--chart-ink)", fontSize: 12 }}
+                domain={[0, yTicks.at(-1)!]}
+                ticks={yTicks}
+              />
+              <Tooltip
+                shared={false}
+                cursor={false}
+                isAnimationActive={false}
+                content={({ active, payload }) =>
+                  active && !hovered ? (
+                    <PriceTooltip datum={payload?.[0]?.payload as PriceDatum | undefined} format={format} />
+                  ) : null
+                }
+              />
+              <Scatter
+                name="sale"
+                data={saleData}
+                dataKey="v"
+                isAnimationActive={false}
+                shape={(props: unknown) => <SaleShape {...(props as Parameters<typeof SaleShape>[0])} />}
+                onMouseEnter={(d: unknown) => {
+                  const { cx, cy, payload } = d as { cx: number; cy: number; payload: PriceDatum };
+                  setHovered({ datum: payload, x: cx, y: cy });
+                }}
+                onMouseLeave={() => setHovered(null)}
+                onClick={(d: unknown) => {
+                  const url = (d as { payload?: SaleDot })?.payload?.url;
+                  if (url) window.open(url, "_blank", "noopener,noreferrer");
+                }}
+              />
+              <Line
+                name="month"
+                data={monthData}
+                dataKey="v"
+                stroke="var(--series-2)"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                dot={false}
+                activeDot={{ r: 5, fill: "var(--series-2)", stroke: "var(--chart-surface)", strokeWidth: 2 }}
+                isAnimationActive={false}
+              />
+              <Line
+                name="ask"
+                data={askData}
+                dataKey="v"
+                stroke="var(--series-1)"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                dot={askData.length <= DOTS_UP_TO ? { r: 4, fill: "var(--series-1)", stroke: "var(--chart-surface)", strokeWidth: 2 } : false}
+                activeDot={{ r: 5, fill: "var(--series-1)", stroke: "var(--chart-surface)", strokeWidth: 2 }}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <p className="chart-empty muted small">No prices yet.</p>
+      )}
+    </figure>
+  );
+}
+
 export function MarketCharts({
   currency,
   start,
   end,
   ask,
   sold,
+  sales,
   listed,
   daysListed,
 }: {
@@ -201,6 +412,7 @@ export function MarketCharts({
   end: number;
   ask: ChartPoint[];
   sold: ChartPoint[];
+  sales: SaleDot[];
   listed: ChartPoint[];
   daysListed: ChartPoint[];
 }) {
@@ -209,23 +421,14 @@ export function MarketCharts({
 
   return (
     <div className="charts">
-      <TimeChart
-        title={`Typical price (${currency})`}
+      <PriceChart
+        currency={currency}
         start={start}
         end={end}
-        yFormat={compactMoney(currency)}
-        empty="No prices yet."
-        series={[
-          { key: "ask", label: "Asking, weekly", color: "var(--series-1)", points: ask, format: fmtMoney },
-          {
-            key: "sold",
-            label: "Sold at auction, monthly",
-            color: "var(--series-2)",
-            points: sold,
-            format: fmtMoney,
-            note: (p) => (p.count ? `${p.count} sale${p.count === 1 ? "" : "s"}` : null),
-          },
-        ]}
+        ask={ask}
+        sold={sold}
+        sales={sales}
+        format={fmtMoney}
       />
       <div className="chart-pair">
         <TimeChart

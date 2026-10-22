@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { MarketCharts, type ChartPoint } from "@/components/MarketCharts";
+import { MarketCharts, type ChartPoint, type SaleDot } from "@/components/MarketCharts";
 import { updatedText, WatchHeader } from "@/components/WatchHeader";
 import { getMarketHistory, HISTORY_DAYS, MARKET_CURRENCY, type Point } from "@/jobs/market";
 import { getSoldResults } from "@/jobs/sold";
@@ -31,7 +31,16 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
 
   const ask = toChart(history.ask, true);
   const sold = history.sold.map((p, i) => ({ ...toChart([p], true)[0], count: history.sold[i].count }));
-  const allDates = [...ask, ...sold].map((p) => p.t);
+  const sales: SaleDot[] = history.sales.map((s) => ({
+    t: new Date(`${s.date}T12:00:00`).getTime(),
+    // Converted at the rate on the day it sold.
+    v: rates.convert(s.price, s.currency, display, s.date) ?? money(s),
+    title: s.title,
+    original: s.currency === display ? null : formatPrice(s.price, s.currency),
+    auctionHouse: s.auctionHouse,
+    url: s.url,
+  }));
+  const allDates = [...ask, ...sales].map((p) => p.t);
   const end = now.getTime();
   // Two years at most; at least 3 months, so a new watch isn't one dot on a vast axis.
   const start = Math.max(end - HISTORY_DAYS * DAY, Math.min(end - 91 * DAY, ...allDates) - 7 * DAY);
@@ -94,6 +103,7 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
         end={end}
         ask={ask}
         sold={sold}
+        sales={sales}
         listed={toChart(history.listed)}
         daysListed={toChart(history.daysListed)}
       />

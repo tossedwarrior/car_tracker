@@ -110,6 +110,11 @@ describe("getMarketHistory", () => {
       { date: "2026-09-15", value: 294000, count: 2 },
       { date: "2026-10-15", value: 322000, count: 1 },
     ]);
+    expect(h.sales.map((p) => [p.date, p.value, p.price, p.currency])).toEqual([
+      ["2026-09-03", 280000, 200000, "USD"],
+      ["2026-09-20", 308000, 220000, "USD"],
+      ["2026-10-02", 322000, 230000, "USD"],
+    ]);
     expect(h.trend).toMatchObject({ label: null, basis: null });
     expect(h.trend.reason).toContain("3 months");
   });
