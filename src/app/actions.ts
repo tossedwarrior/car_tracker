@@ -41,14 +41,16 @@ export async function removeWatch(form: FormData) {
   redirect("/");
 }
 
-export interface CheckNowState {
+export interface RefreshState {
+  status?: "ok" | "partial" | "failed";
   log?: string[];
-  status?: string;
+  calls?: number;
 }
 
-export async function runCheckNow(_prev: CheckNowState): Promise<CheckNowState> {
-  const { runDailyCheck } = await import("@/jobs/daily");
-  const result = await runDailyCheck();
+export async function refreshListings(_prev: RefreshState, form: FormData): Promise<RefreshState> {
+  const { runRefresh } = await import("@/jobs/refresh");
+  const watchId = Number(form.get("watchId")) || null;
+  const result = await runRefresh({ watchIds: watchId ? [watchId] : undefined });
   revalidatePath("/", "layout");
-  return { log: result.log, status: result.status };
+  return { status: result.status, log: result.log, calls: result.calls };
 }

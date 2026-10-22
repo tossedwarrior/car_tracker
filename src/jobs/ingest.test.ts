@@ -75,7 +75,7 @@ describe("recordListings", () => {
     expect(snapshots(row("VIN1").id)).toHaveLength(1);
   });
 
-  it("marks a car gone after 3 daily checks in a row without it", () => {
+  it("marks a car gone after missing from refreshes on 3 different days", () => {
     record("2026-10-01", [car(1), car(2)]);
     expect(record("2026-10-02", [car(1)]).missed).toBe(1);
     expect(record("2026-10-03", [car(1)]).missed).toBe(1);
@@ -102,7 +102,7 @@ describe("recordListings", () => {
     expect(row("VIN2")).toMatchObject({ status: "active", missedChecks: 0 });
   });
 
-  it("counts at most one miss per day if the check runs twice", () => {
+  it("counts at most one miss per day, however often it refreshes", () => {
     record("2026-10-01", [car(1), car(2)]);
     record("2026-10-02", [car(1)]);
     record("2026-10-02", [car(1)]);

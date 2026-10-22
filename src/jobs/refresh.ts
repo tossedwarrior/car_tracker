@@ -1,23 +1,23 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { checkRuns, watchlist } from "@/db/schema";
 import { watchTitle } from "@/lib/format";
 import { liveContext, listingSources } from "@/sources";
-import type { ListingSource, SourceContext } from "@/sources/types";
-import { BudgetExceededError, getUsage } from "@/sources/usage";
-import { isDue, localDate, pagesPerWatch } from "./budget";
+import { BudgetExceededError, type ListingSource, type SourceContext } from "@/sources/types";
+import { getUsage } from "@/sources/usage";
+import { localDate, pagesPerWatch } from "./budget";
 import { recordListings, type IngestStats } from "./ingest";
 
-export interface DailyCheckOptions {
+export interface RefreshOptions {
+  /** Only these watched cars. Default: every active one. */
+  watchIds?: number[];
   now?: Date;
   sources?: ListingSource[];
   /** How each source reaches its API. Tests swap in saved responses. */
   contextFor?: (source: ListingSource) => SourceContext;
-  /** Run every source, even ones not due today. */
-  allSources?: boolean;
 }
 
-export interface DailyCheckResult {
+export interface RefreshResult {
   runId: number;
   status: "ok" | "partial" | "failed";
   log: string[];
@@ -25,15 +25,15 @@ export interface DailyCheckResult {
 }
 
 /**
- * The daily check: for each source that's due, search every active watched
- * car and save what comes back. Records the run in check_runs.
+ * Refresh listings on request: search each source for the chosen watched
+ * cars and save what comes back. Records the run in check_runs.
  */
-export async function runDailyCheck({
+export async function runRefresh({
+  watchIds,
   now = new Date(),
   sources = listingSources,
   contextFor = liveContext,
-  allSources = false,
-}: DailyCheckOptions = {}): Promise<DailyCheckResult> {
+}: RefreshOptions = {}): Promise<RefreshResult> {
   const date = localDate(now);
   const log: string[] = [];
   let problems = 0;
@@ -45,15 +45,19 @@ export async function runDailyCheck({
     .returning({ id: checkRuns.id })
     .get();
 
-  const watches = db.select().from(watchlist).where(eq(watchlist.active, true)).all();
+  const watches = db
+    .select()
+    .from(watchlist)
+    .where(
+      watchIds
+        ? and(eq(watchlist.active, true), inArray(watchlist.id, watchIds))
+        : eq(watchlist.active, true),
+    )
+    .all();
   if (watches.length === 0) log.push("No active watched cars.");
+  const refreshed = new Set<number>();
 
   for (const source of watches.length ? sources : []) {
-    if (!allSources && !isDue(source.everyDays, now)) {
-      log.push(`${source.label}: not due today (runs every ${source.everyDays} days).`);
-      continue;
-    }
-
     let ctx: SourceContext;
     try {
       ctx = contextFor(source);
@@ -67,8 +71,6 @@ export async function runDailyCheck({
       limit: source.monthlyCallLimit,
       used: getUsage(source.id),
       watchCount: watches.length,
-      everyDays: source.everyDays,
-      now,
     });
     log.push(`${source.label}: up to ${maxPages} page(s) per car.`);
 
@@ -84,6 +86,7 @@ export async function runDailyCheck({
           date,
           complete: !result.truncated,
         });
+        refreshed.add(watch.id);
         log.push(`  ${name}: ${describe(stats, result)}`);
       } catch (e) {
         problems++;
@@ -96,13 +99,33 @@ export async function runDailyCheck({
     }
   }
 
+  const finishedAt = new Date().toISOString();
+  if (refreshed.size) {
+    db.update(watchlist)
+      .set({ lastRefreshed: finishedAt })
+      .where(inArray(watchlist.id, [...refreshed]))
+      .run();
+  }
   const status = problems === 0 ? "ok" : calls > 0 ? "partial" : "failed";
   db.update(checkRuns)
-    .set({ finishedAt: new Date().toISOString(), status, log: log.join("\n") })
+    .set({ finishedAt, status, log: log.join("\n") })
     .where(eq(checkRuns.id, run.id))
     .run();
 
   return { runId: run.id, status, log, calls };
+}
+
+/** Most API calls a refresh of `watchCount` cars could use, across sources with keys. */
+export function maxRefreshCalls(watchCount: number): number {
+  return listingSources
+    .filter((s) => process.env[s.apiKeyEnv])
+    .reduce(
+      (n, s) =>
+        n +
+        watchCount *
+          pagesPerWatch({ limit: s.monthlyCallLimit, used: getUsage(s.id), watchCount }),
+      0,
+    );
 }
 
 function describe(

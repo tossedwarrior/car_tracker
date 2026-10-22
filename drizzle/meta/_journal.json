@@ -15,6 +15,13 @@
       "when": 1792684114148,
       "tag": "0001_daily_job",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792684619922,
+      "tag": "0002_refresh_on_demand",
+      "breakpoints": true
     }
   ]
 }

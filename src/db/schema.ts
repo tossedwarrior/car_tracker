@@ -35,6 +35,8 @@ export const watchlist = sqliteTable("watchlist", {
     .default("CAD"),
   notes: text("notes"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  // When this car's listings were last refreshed (ISO timestamp).
+  lastRefreshed: text("last_refreshed"),
   createdAt: createdAt(),
 });
 
@@ -75,7 +77,7 @@ export const listings = sqliteTable(
     // Date this listing's source last completed a full search for its watch.
     // Stops a second run on the same day from counting a miss twice.
     lastChecked: text("last_checked"),
-    // Consecutive daily checks the listing was missing from. At 3 it's "gone".
+    // Refreshes (on different days) in a row the listing was missing from. At 3 it's "gone".
     missedChecks: integer("missed_checks").notNull().default(0),
     status: text("status", { enum: listingStatuses })
       .notNull()
@@ -200,7 +202,7 @@ export const fxRates = sqliteTable(
 
 export const checkRunStatuses = ["running", "ok", "partial", "failed"] as const;
 
-/** One row per daily check, for the settings page. */
+/** One row per refresh, for the settings page. */
 export const checkRuns = sqliteTable("check_runs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   startedAt: text("started_at").notNull(),

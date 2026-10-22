@@ -65,8 +65,6 @@ export interface ListingSource {
   label: string;
   /** Free-plan calls per month. The call counter stops before this. */
   monthlyCallLimit: number;
-  /** Run this source on every Nth day (1 = daily). */
-  everyDays: number;
   /** Name of the env var holding this source's key. */
   apiKeyEnv: string;
   search(

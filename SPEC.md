@@ -99,3 +99,8 @@ Build version 1 in small steps and check in with me after each one:
 
 Keep every data source behind its own adapter so sources can be added or swapped later. Never commit API keys. Ask me before doing anything that uses more than 20 real API calls.
 ```
+
+## Changes made during the build
+
+- **Runs locally** on SQLite rather than a hosted app (step 1).
+- **No daily job (Oct 22, 2026).** Listings refresh only when I ask: Refresh all on the watchlist, Refresh on a car's page, or `npm run refresh`. Each car fetches up to 5 pages of 20 listings; each source stops before its free monthly limit. A listing is marked gone after missing from refreshes on 3 different days. Weekly market snapshots and monthly auction pulls should also happen on refresh rather than on a schedule.

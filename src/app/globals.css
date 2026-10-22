@@ -136,3 +136,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .status { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 0.8em; background: var(--border); }
 .status.ok { background: var(--good-bg); color: var(--good); }
 .status.partial, .status.failed { color: var(--danger); }
+
+.head-actions { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; }
+.refresh { display: grid; justify-items: end; gap: 4px; }
+.refresh-result { max-width: 560px; text-align: left; }
+.refresh-result summary { cursor: pointer; text-align: right; }
+
+table.listings td:last-child { white-space: nowrap; }

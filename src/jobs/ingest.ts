@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { listings, priceSnapshots } from "@/db/schema";
 import type { NormalizedListing } from "@/sources/types";
 
-/** Daily checks a listing can be missing from before it's marked gone. */
+/** Refreshes (one per day at most) a listing can be missing from before it's marked gone. */
 export const MISSES_UNTIL_GONE = 3;
 
 export interface IngestStats {
@@ -142,7 +142,7 @@ export function recordListings({
           eq(listings.source, source),
           eq(listings.status, "active"),
           lt(listings.lastSeen, date),
-          // Count at most one miss per day, even if the check runs twice.
+          // Count at most one miss per day, however many times it's refreshed.
           or(isNull(listings.lastChecked), lt(listings.lastChecked, date)),
         ),
       )

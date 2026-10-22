@@ -1,0 +1,1 @@
+ALTER TABLE `watchlist` ADD `last_refreshed` text;

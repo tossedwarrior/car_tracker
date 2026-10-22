@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { currencies, listings, watchlist, type Currency } from "@/db/schema";
 
 export type Watch = typeof watchlist.$inferSelect;
-export type WatchInput = Omit<Watch, "id" | "createdAt" | "active">;
+export type WatchInput = Omit<Watch, "id" | "createdAt" | "active" | "lastRefreshed">;
 export type Listing = typeof listings.$inferSelect;
 
 export type FormErrors = Partial<Record<keyof WatchInput | "form", string>>;

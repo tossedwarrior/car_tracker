@@ -17,9 +17,7 @@
     "test": "vitest run",
     "check-source": "tsx scripts/check-source.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "check:daily": "tsx scripts/daily.ts",
-    "schedule:install": "tsx scripts/schedule.ts install",
-    "schedule:uninstall": "tsx scripts/schedule.ts uninstall"
+    "refresh": "tsx scripts/refresh.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

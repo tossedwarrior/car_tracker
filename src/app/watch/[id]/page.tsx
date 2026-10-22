@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { daysSince, formatKm, formatPrice, formatYears, watchTitle } from "@/lib/format";
+import { RefreshButton } from "@/components/RefreshButton";
+import { maxRefreshCalls } from "@/jobs/refresh";
+import { daysSince, formatKm, formatPrice, formatYears, timeAgo, watchTitle } from "@/lib/format";
 import {
   countGone,
   getListings,
@@ -54,10 +56,16 @@ export default async function WatchListingsPage({
         <div>
           <h1>{watchTitle(watch)}</h1>
           <p className="muted">{criteria(watch)}</p>
+          <p className="muted small">
+            {watch.lastRefreshed ? `Refreshed ${timeAgo(watch.lastRefreshed)}` : "Not refreshed yet"}
+          </p>
         </div>
-        <Link href={`/watch/${watch.id}/edit`} className="button">
-          Edit
-        </Link>
+        <div className="head-actions">
+          {watch.active && <RefreshButton watchId={watch.id} maxCalls={maxRefreshCalls(1)} />}
+          <Link href={`/watch/${watch.id}/edit`} className="button">
+            Edit
+          </Link>
+        </div>
       </div>
       {watch.notes && <p className="notes">{watch.notes}</p>}
 
@@ -79,7 +87,7 @@ export default async function WatchListingsPage({
       {rows.length === 0 ? (
         <div className="empty">
           <p>No listings yet.</p>
-          <p className="muted">Matching cars show up here after the daily check runs.</p>
+          <p className="muted">Press Refresh to search for matching cars.</p>
         </div>
       ) : (
         <div className="table-wrap">

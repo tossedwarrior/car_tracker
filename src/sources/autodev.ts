@@ -156,7 +156,6 @@ export const autodev: ListingSource = {
   id: "autodev",
   label: "Auto.dev (U.S.)",
   monthlyCallLimit: 1000,
-  everyDays: 1,
   apiKeyEnv: "AUTO_DEV_API_KEY",
   search,
 };

@@ -1,10 +1,7 @@
 import { desc, eq } from "drizzle-orm";
-import fs from "node:fs";
 import { db } from "@/db";
 import { checkRuns, watchlist } from "@/db/schema";
-import { pagesPerWatch } from "@/jobs/budget";
-import { SCHEDULE_HOUR, schedulePlistPath } from "@/jobs/schedule";
-import { RunCheckButton } from "@/components/RunCheckButton";
+import { MAX_PAGES_PER_WATCH, pagesPerWatch } from "@/jobs/budget";
 import { listingSources } from "@/sources";
 import { getUsage, monthKey } from "@/sources/usage";
 
@@ -18,20 +15,12 @@ export default function SettingsPage() {
   });
   const watchCount = db.select().from(watchlist).where(eq(watchlist.active, true)).all().length;
   const runs = db.select().from(checkRuns).orderBy(desc(checkRuns.id)).limit(10).all();
-  const scheduled = fs.existsSync(schedulePlistPath());
 
   const sources = listingSources.map((s) => {
     const used = getUsage(s.id);
-    const pages = pagesPerWatch({
-      limit: s.monthlyCallLimit,
-      used,
-      watchCount,
-      everyDays: s.everyDays,
-      now,
-    });
+    const pages = pagesPerWatch({ limit: s.monthlyCallLimit, used, watchCount });
     return { s, used, pages, maxCalls: pages * watchCount, hasKey: !!process.env[s.apiKeyEnv] };
   });
-  const maxCalls = sources.reduce((n, x) => n + (x.hasKey ? x.maxCalls : 0), 0);
 
   return (
     <>
@@ -45,8 +34,7 @@ export default function SettingsPage() {
               <tr>
                 <th>Source</th>
                 <th>Used this month</th>
-                <th>Runs</th>
-                <th className="num">Next run, at most</th>
+                <th className="num">Refresh all, at most</th>
                 <th>API key</th>
               </tr>
             </thead>
@@ -62,7 +50,6 @@ export default function SettingsPage() {
                       {used.toLocaleString()} of {s.monthlyCallLimit.toLocaleString()} free
                     </span>
                   </td>
-                  <td>{s.everyDays === 1 ? "Daily" : `Every ${s.everyDays} days`}</td>
                   <td className="num">
                     {maxCalls} call{maxCalls === 1 ? "" : "s"}
                     <div className="muted small">
@@ -76,28 +63,17 @@ export default function SettingsPage() {
           </table>
         </div>
         <p className="muted small">
-          Each source stops before its free limit. Pages per car are the calls left this month spread
-          over the runs left, up to 5 pages (100 listings) per car.
+          Listings refresh only when you press Refresh. Each car fetches up to {MAX_PAGES_PER_WATCH} pages
+          (20 listings each) and stops early once it has them all. Each source stops before its free
+          limit; when few calls are left, they are shared so every car gets its newest listings.
         </p>
       </section>
 
       <section>
-        <h2>Daily check</h2>
-        <p>
-          {scheduled ? (
-            <>Scheduled to run every day at {SCHEDULE_HOUR}:00 on this Mac.</>
-          ) : (
-            <>
-              <span className="error">Not scheduled.</span>{" "}
-              <span className="muted">
-                Run <code>npm run schedule:install</code> to check every day at {SCHEDULE_HOUR}:00.
-              </span>
-            </>
-          )}
-        </p>
-        <RunCheckButton maxCalls={maxCalls} />
-
-        {runs.length > 0 && (
+        <h2>Recent refreshes</h2>
+        {runs.length === 0 ? (
+          <p className="muted">None yet.</p>
+        ) : (
           <div className="runs">
             {runs.map((r) => (
               <details key={r.id} open={r.id === runs[0].id}>

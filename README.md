@@ -28,18 +28,20 @@ npm run check-source -- autodev --make Ferrari --model "458 Italia" --years 2011
 `check-source` makes real calls (one per page, `--pages 1` by default). Add
 `--save` to keep the raw response as a fixture.
 
-## Daily check
+## Refreshing listings
 
-`npm run check:daily` searches every active watched car on each source that's
-due today, saves new and changed listings (with a price snapshot on each
-change), and marks cars missing for 3 checks in a row as gone. Each source's
-pages per car come from its calls left this month, spread over the runs left.
-Runs and API call counts are on the Settings page.
+Listings only refresh when you ask: the **Refresh all** button on the
+watchlist, **Refresh** on a car's page, or from the terminal:
 
 ```bash
-npm run schedule:install     # run it daily at 7:00 via launchd (log: data/logs/daily.log)
-npm run schedule:uninstall
+npm run refresh          # every active watched car
+npm run refresh -- 1     # just watched car #1
 ```
+
+A refresh saves new and changed listings (with a price snapshot on each
+change). A car missing from refreshes on 3 different days is marked gone.
+Each car fetches up to 5 pages of 20; each source stops before its free
+monthly limit. Refreshes and API call counts are on the Settings page.
 
 ## Database
 
