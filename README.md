@@ -80,8 +80,9 @@ npm run db:migrate
 
 ## Hosting (cPanel "Setup Node.js App", e.g. GoDaddy)
 
-1. **Application startup file:** `app.cjs`. It creates or updates the
-   database tables on start, then serves the built app.
+1. **Start command:** `npm start` (it runs `app.cjs`), or `app.cjs` as the
+   application startup file. Either way it creates or updates the database
+   tables on start, then serves the built app. Plain `next start` skips that.
 2. **Environment variables** (set in cPanel, never committed):
    - `AUTO_DEV_API_KEY`, `MARKETCHECK_API_KEY`, `OLD_CARS_DATA_API_KEY`
    - `DATABASE_PATH`: an absolute path outside `public_html`, e.g.

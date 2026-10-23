@@ -1,9 +1,9 @@
-// Startup file for hosting with cPanel's "Setup Node.js App" (Passenger).
-// Set it as the application's startup file. Needs `npm install` and
+// Production startup. `npm start` runs it, and it can also be the startup
+// file in cPanel's "Setup Node.js App". Needs `npm install` and
 // `npm run build` first. CommonJS (.cjs) so any Node loader can run it.
 //
 // On start: creates or updates the database tables (DATABASE_PATH), then
-// serves the built app on the port Passenger gives it.
+// serves the built app on the host's PORT.
 
 const fs = require("node:fs");
 const path = require("node:path");
