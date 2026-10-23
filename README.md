@@ -100,7 +100,10 @@ base path setting blank or `/`.
      page with status 200, so host health checks pass. Leave it unset only if
      the site isn't reachable from the internet.
    - Don't set `NODE_ENV`: `npm install` would then skip the build tools.
-3. After each deploy: **Run NPM Install**, then **Run JS script → build**,
-   then **Restart**.
+3. Builds: `npm start` installs dependencies if they're missing and builds the
+   app if there's no build of the current code (it fingerprints the source),
+   so a host that ships only the code, or leaves an older build behind, still
+   starts the right version. The first start after a change takes a minute or
+   two. On cPanel you can still Run NPM Install and build ahead of time.
 4. To keep existing data, upload `data/tracker.db` from this Mac to
    `DATABASE_PATH` while the app is stopped.

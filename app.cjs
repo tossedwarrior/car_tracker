@@ -1,16 +1,36 @@
 // Production startup. `npm start` runs it, and it can also be the startup
-// file in cPanel's "Setup Node.js App". Needs `npm install` and
-// `npm run build` first. CommonJS (.cjs) so any Node loader can run it.
+// file in cPanel's "Setup Node.js App". CommonJS (.cjs) so any Node loader
+// can run it.
 //
-// On start: creates or updates the database tables (DATABASE_PATH), then
-// serves the built app on the host's PORT.
+// On start it makes sure the app can run, whatever the host shipped:
+//   1. installs dependencies if they're missing;
+//   2. builds the app if there's no build, or the build is from older code
+//      (hosts can leave a previous version's files behind);
+//   3. creates or updates the database tables (DATABASE_PATH);
+// then serves the app on the host's PORT.
 
+const { execSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createServer } = require("node:http");
 
-process.env.NODE_ENV = "production";
 const dir = __dirname;
+const run = (command) => execSync(command, { cwd: dir, stdio: "inherit" });
+
+if (!fs.existsSync(path.join(dir, "node_modules", "next", "package.json"))) {
+  console.log("No dependencies found; installing them (npm ci)…");
+  // The build needs the dev tools (TypeScript), even with NODE_ENV=production.
+  run("npm ci --include=dev");
+}
+
+const stamp = require("./scripts/build-stamp.cjs");
+if (!stamp.isCurrent()) {
+  console.log("No build of this version found; building it…");
+  run("npx next build");
+  stamp.write();
+}
+
+process.env.NODE_ENV = "production";
 
 // Database tables, from the migrations in drizzle/.
 const Database = require("better-sqlite3");
@@ -22,11 +42,6 @@ fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const sqlite = new Database(dbPath);
 migrate(drizzle(sqlite), { migrationsFolder: path.join(dir, "drizzle") });
 sqlite.close();
-
-if (!fs.existsSync(path.join(dir, ".next", "BUILD_ID"))) {
-  console.error("No build found. Run `npm run build` (cPanel: Run JS script → build), then restart.");
-  process.exit(1);
-}
 
 const next = require("next");
 const app = next({ dev: false, dir });

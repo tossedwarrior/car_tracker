@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/build-stamp.cjs write",
     "start": "node app.cjs",
     "lint": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
