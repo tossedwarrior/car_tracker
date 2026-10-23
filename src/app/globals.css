@@ -224,3 +224,4 @@ tr.unseen td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
   font: inherit; color: var(--fg); background: var(--surface);
   border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px;
 }
+.login { max-width: 360px; margin: 48px auto; }

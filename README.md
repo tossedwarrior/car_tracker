@@ -78,7 +78,10 @@ npm run db:generate -- --name <change>
 npm run db:migrate
 ```
 
-## Hosting (cPanel "Setup Node.js App", e.g. GoDaddy)
+## Hosting (GoDaddy, or cPanel "Setup Node.js App")
+
+The app serves from the root of its address, so leave any "root path" or
+base path setting blank or `/`.
 
 1. **Start command:** `npm start` (it runs `app.cjs`), or `app.cjs` as the
    application startup file. Either way it creates or updates the database
@@ -87,8 +90,10 @@ npm run db:migrate
    - `AUTO_DEV_API_KEY`, `MARKETCHECK_API_KEY`, `OLD_CARS_DATA_API_KEY`
    - `DATABASE_PATH`: an absolute path outside `public_html`, e.g.
      `/home/<cpanel-user>/car_tracker_data/tracker.db`
-   - `APP_PASSWORD`: the browser asks for it (any username). Leave it unset
-     only if the site isn't reachable from the internet.
+   - `APP_PASSWORD`: shows a sign-in page until it's entered; a cookie keeps
+     that browser signed in for 30 days. Signed-out visitors get the sign-in
+     page with status 200, so host health checks pass. Leave it unset only if
+     the site isn't reachable from the internet.
    - Don't set `NODE_ENV`: `npm install` would then skip the build tools.
 3. After each deploy: **Run NPM Install**, then **Run JS script → build**,
    then **Restart**.

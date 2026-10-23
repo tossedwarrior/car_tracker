@@ -1,37 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isValidSession, SESSION_COOKIE } from "@/lib/auth";
 
-// Password for the whole site, for when it's on the internet. Set
-// APP_PASSWORD where the app is hosted; the browser asks for it once (any
-// username). With no APP_PASSWORD, as on this Mac, there's no password.
+// When APP_PASSWORD is set, signed-out visitors see the sign-in page (status
+// 200, so a host's health check still passes) instead of the app.
 
-/** Compare without stopping at the first difference, so timing doesn't leak it. */
-function sameText(a: string, b: string): boolean {
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+export async function proxy(request: NextRequest) {
+  if (await isValidSession(request.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
+
+  const { pathname, search } = request.nextUrl;
+  if (pathname === "/login" || pathname === "/api/login") return NextResponse.next();
+
+  // Pages: show the sign-in form at the same address, then come back here.
+  if (request.method === "GET" || request.method === "HEAD") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = `?next=${encodeURIComponent(pathname + search)}`;
+    return NextResponse.rewrite(url);
   }
-  return diff === 0;
+  // Anything else (form posts, Refresh buttons) needs a signed-in session.
+  return new NextResponse("Sign in first.", { status: 401 });
 }
 
-export function passwordFromHeader(header: string | null): string | null {
-  if (!header?.startsWith("Basic ")) return null;
-  try {
-    const decoded = atob(header.slice(6));
-    return decoded.slice(decoded.indexOf(":") + 1);
-  } catch {
-    return null;
-  }
-}
-
-export function proxy(request: NextRequest) {
-  const expected = process.env.APP_PASSWORD;
-  if (!expected) return NextResponse.next();
-
-  const given = passwordFromHeader(request.headers.get("authorization"));
-  if (given != null && sameText(given, expected)) return NextResponse.next();
-
-  return new NextResponse("Password required.", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Car Price Tracker", charset="UTF-8"' },
-  });
-}
+export const config = {
+  // Build files and the icon carry no data, and the sign-in page needs them.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
