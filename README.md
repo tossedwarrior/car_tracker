@@ -51,9 +51,14 @@ monthly limit. Refreshes and API call counts are on the Settings page.
 
 ## Market, alerts and currency
 
-- **Market trend** (a tab on each car): every auction sale as a dot (hover for
+- **Market trend** (a tab on each car), filterable by variant (Standard, Spider,
+  Speciale… read from titles and trims): summary of momentum (typical sale, last
+  3 months vs the 3 before), asking vs sold gap and recent price cuts; every auction sale as a dot (hover for
   the car, click to open the sale) with a monthly median sale trend line, the
-  weekly typical asking price, cars listed and days listed, over up to 2 years. Each
+  weekly typical asking price, cars listed and days listed, over up to 2 years,
+  with a shaded middle half (25th–75th percentile) of each month's sales; tables
+  by variant, by model year and month by month; Refresh listings and Update sold
+  prices buttons. Each
   refresh saves this week's snapshot (a later refresh that week replaces it).
   Rising/flat/cooling = typical price up more than 3% / within 3% / down more
   than 3% over 3 months, from asking prices once there are 3 months of them,

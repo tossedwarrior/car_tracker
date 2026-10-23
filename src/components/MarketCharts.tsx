@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  Area,
   CartesianGrid,
   ComposedChart,
   Line,
@@ -19,6 +20,9 @@ export interface ChartPoint {
   v: number;
   /** Sales behind a monthly median. */
   count?: number;
+  /** Middle half of a month's sales (25th to 75th percentile). */
+  low?: number;
+  high?: number;
 }
 
 /** One auction sale, plotted as its own dot. */
@@ -253,6 +257,11 @@ function PriceTooltip({ datum, format }: { datum?: PriceDatum; format: (v: numbe
         </span>
       </div>
       {datum.kind === "sale" && <div>{datum.title}</div>}
+      {datum.kind === "month" && datum.low != null && datum.high != null && datum.count! > 1 && (
+        <div className="muted small">
+          Middle half: {format(datum.low)} – {format(datum.high)}
+        </div>
+      )}
       <div className="muted small">
         {datum.kind === "sale"
           ? [datum.auctionHouse, fmtDate(datum.t)].filter(Boolean).join(" · ")
@@ -283,7 +292,7 @@ function PriceChart({
   format: (v: number) => string;
 }) {
   const askData = ask.map((p) => ({ ...p, kind: "ask" as const }));
-  const monthData = sold.map((p) => ({ ...p, kind: "month" as const }));
+  const monthData = sold.map((p) => ({ ...p, kind: "month" as const, range: [p.low ?? p.v, p.high ?? p.v] }));
   const saleData = sales.map((p) => ({ ...p, kind: "sale" as const }));
   const hasData = askData.length + saleData.length > 0;
   // Sale dots get their own tooltip: Recharts would otherwise show the line under the pointer.
@@ -295,15 +304,24 @@ function PriceChart({
       <figcaption>
         <span className="chart-title">Price ({currency})</span>
         <span className="legend">
-          <span>
-            <span className="dot-key" style={{ background: "var(--series-2)" }} /> Each auction sale
-          </span>
-          <span>
-            <span className="line-key" style={{ background: "var(--series-2)" }} /> Monthly median sale
-          </span>
-          <span>
-            <span className="line-key" style={{ background: "var(--series-1)" }} /> Typical asking, weekly
-          </span>
+          {saleData.length > 0 && (
+            <>
+              <span>
+                <span className="dot-key" style={{ background: "var(--series-2)" }} /> Each auction sale
+              </span>
+              <span>
+                <span className="line-key" style={{ background: "var(--series-2)" }} /> Monthly median sale
+              </span>
+              <span>
+                <span className="area-key" style={{ background: "var(--series-2)" }} /> Middle half of sales
+              </span>
+            </>
+          )}
+          {askData.length > 0 && (
+            <span>
+              <span className="line-key" style={{ background: "var(--series-1)" }} /> Typical asking, weekly
+            </span>
+          )}
         </span>
       </figcaption>
       {hasData ? (
@@ -363,6 +381,17 @@ function PriceChart({
                   if (url) window.open(url, "_blank", "noopener,noreferrer");
                 }}
               />
+              <Area
+                name="band"
+                data={monthData}
+                dataKey="range"
+                stroke="none"
+                fill="var(--series-2)"
+                fillOpacity={0.12}
+                activeDot={false}
+                tooltipType="none"
+                isAnimationActive={false}
+              />
               <Line
                 name="month"
                 data={monthData}
@@ -406,6 +435,7 @@ export function MarketCharts({
   sales,
   listed,
   daysListed,
+  showActivity = true,
 }: {
   currency: string;
   start: number;
@@ -415,6 +445,8 @@ export function MarketCharts({
   sales: SaleDot[];
   listed: ChartPoint[];
   daysListed: ChartPoint[];
+  /** The cars-listed and days-listed charts; hidden for a single variant. */
+  showActivity?: boolean;
 }) {
   const money = new Intl.NumberFormat("en-CA", { style: "currency", currency, maximumFractionDigits: 0 });
   const fmtMoney = (v: number) => (currency === "CAD" ? `CA${money.format(v)}` : money.format(v));
@@ -430,7 +462,7 @@ export function MarketCharts({
         sales={sales}
         format={fmtMoney}
       />
-      <div className="chart-pair">
+      {showActivity && <div className="chart-pair">
         <TimeChart
           title="Cars listed"
           start={start}
@@ -449,7 +481,7 @@ export function MarketCharts({
             { key: "days", label: "median", color: "var(--series-1)", points: daysListed, format: (v) => `${Math.round(v)} days` },
           ]}
         />
-      </div>
+      </div>}
     </div>
   );
 }

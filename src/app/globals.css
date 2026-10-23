@@ -225,3 +225,6 @@ tr.unseen td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
   border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px;
 }
 .login { max-width: 360px; margin: 48px auto; }
+.area-key { display: inline-block; width: 12px; height: 10px; border-radius: 2px; opacity: 0.25; vertical-align: middle; }
+.segmented.wrap { flex-wrap: wrap; }
+tr.selected td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
