@@ -7,7 +7,7 @@ export type Watch = typeof watchlist.$inferSelect;
 export type WatchInput = Omit<Watch, "id" | "createdAt" | "active" | "lastRefreshed" | "lastSoldPull">;
 export type Listing = typeof listings.$inferSelect;
 
-export type FormErrors = Partial<Record<keyof WatchInput | "form", string>>;
+export type FormErrors = Partial<Record<keyof WatchInput | "form" | "logo" | "photo", string>>;
 
 const MIN_YEAR = 1950;
 

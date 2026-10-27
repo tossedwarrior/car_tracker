@@ -1,5 +1,5 @@
 /** The design's 18px icons (Streamline Material, exported from Figma at 48px). */
-export type IconName = "arrow-back" | "refresh" | "edit" | "sort" | "chevron-down";
+export type IconName = "arrow-back" | "refresh" | "edit" | "sort" | "chevron-down" | "upload";
 
 export function Icon({ name }: { name: IconName }) {
   // eslint-disable-next-line @next/next/no-img-element

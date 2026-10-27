@@ -20,15 +20,29 @@ export async function saveWatch(
   _prev: WatchFormState,
   form: FormData,
 ): Promise<WatchFormState> {
+  const { readImageUpload, saveImage } = await import("@/lib/images");
+  const id = Number(form.get("id")) || null;
+  // A new car needs both images; editing keeps the old ones unless replaced.
+  const logo = await readImageUpload(form.get("logo"), "logo", { required: !id });
+  const photo = await readImageUpload(form.get("photo"), "photo", { required: !id });
+
   const parsed = parseWatchForm(form);
-  if (!parsed.ok) {
-    const values = Object.fromEntries([...form].map(([k, v]) => [k, String(v)]));
-    return { errors: parsed.errors, values };
+  const errors = {
+    ...(parsed.ok ? {} : parsed.errors),
+    ...("error" in logo ? { logo: logo.error } : {}),
+    ...("error" in photo ? { photo: photo.error } : {}),
+  };
+  if (!parsed.ok || "error" in logo || "error" in photo) {
+    const values = Object.fromEntries(
+      [...form].flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : [])),
+    );
+    return { errors, values };
   }
 
-  const id = Number(form.get("id")) || null;
   if (id) updateWatch(id, parsed.values);
   const watchId = id ?? createWatch(parsed.values);
+  if (logo.image) saveImage(watchId, "logo", logo.image);
+  if (photo.image) saveImage(watchId, "photo", photo.image);
 
   revalidatePath("/");
   redirect(`/watch/${watchId}`);

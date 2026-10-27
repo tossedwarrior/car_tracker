@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { NavLinks } from "@/components/NavLinks";
 import { countUnseenAlerts } from "@/jobs/alerts";
 import { isValidSession, SESSION_COOKIE } from "@/lib/auth";
 import { sans, serif } from "./fonts";
@@ -27,18 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               Poster Wall
             </Link>
             {signedIn && (
-              <nav aria-label="Main">
-                <Link href="/alerts">
-                  Alerts
-                  {unseenAlerts > 0 && (
-                    <span className="nav-count" aria-label={`${unseenAlerts} not seen`}>
-                      {unseenAlerts}
-                    </span>
-                  )}
-                </Link>
-                <Link href="/settings">Settings</Link>
-                <Link href="/watch/new">Add a car</Link>
-              </nav>
+              <NavLinks unseenAlerts={unseenAlerts} />
             )}
           </div>
         </header>

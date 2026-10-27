@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  blob,
   index,
   integer,
   real,
@@ -217,3 +218,23 @@ export const checkRuns = sqliteTable("check_runs", {
   // What happened, one line per watch and source.
   log: text("log").notNull().default(""),
 });
+
+export const imageKinds = ["logo", "photo"] as const;
+export type ImageKind = (typeof imageKinds)[number];
+
+/** A watched car's brand logo and car photo, stored with the data so they survive redeploys. */
+export const watchImages = sqliteTable(
+  "watch_images",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    watchId: integer("watch_id")
+      .notNull()
+      .references(() => watchlist.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: imageKinds }).notNull(),
+    contentType: text("content_type").notNull(),
+    data: blob("data", { mode: "buffer" }).notNull(),
+    fileName: text("file_name"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("watch_images_watch_kind_uq").on(t.watchId, t.kind)],
+);
