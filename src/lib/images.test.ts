@@ -9,7 +9,7 @@ const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
 const WEBP = new TextEncoder().encode("RIFF\0\0\0\0WEBPVP8 ");
 const SVG = new TextEncoder().encode('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"/>');
 
-const file = (bytes: Uint8Array, name = "logo.png", type = "image/png") => new File([bytes], name, { type });
+const file = (bytes: Uint8Array, name = "logo.png", type = "image/png") => new File([new Uint8Array(bytes)], name, { type });
 
 describe("sniffImageType", () => {
   it("goes by the file's bytes, not its name", () => {

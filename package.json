@@ -10,7 +10,7 @@
     "dev": "next dev",
     "build": "next build && node scripts/build-stamp.cjs write",
     "start": "node app.cjs",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit --incremental false",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
