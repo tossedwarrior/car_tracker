@@ -142,4 +142,6 @@ export async function setHomeView(form: FormData) {
     sameSite: "lax",
   });
   revalidatePath("/");
+  // Start the new view from the top.
+  redirect("/");
 }

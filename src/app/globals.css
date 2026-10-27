@@ -474,7 +474,9 @@ header.site nav a[aria-current="page"] { font-weight: 700; }
 :root { --header-h: 79px; }
 header.site .inner { min-height: var(--header-h); }
 main:has(> .showroom) { max-width: none; padding: 0; }
-:root:has(.showroom) { scroll-snap-type: y proximity; }
+/* The header stays pinned on the expanded view; cars snap in place just under it. */
+:root:has(.showroom) { scroll-snap-type: y proximity; scroll-padding-top: var(--header-h); }
+body:has(.showroom) header.site { position: sticky; top: 0; z-index: 20; }
 
 .showroom {
   --stage-h: max(560px, calc(100svh - var(--header-h)));
@@ -485,11 +487,17 @@ main:has(> .showroom) { max-width: none; padding: 0; }
   position: relative; height: calc(var(--slots) * var(--stage-h)); background: #eef2f3;
 }
 .showroom-snap { position: absolute; left: 0; width: 1px; height: var(--stage-h); top: calc(var(--slot) * var(--stage-h)); scroll-snap-align: start; }
-.showroom-snap:first-child { top: calc(-1 * var(--header-h)); }
 .showroom-stage {
-  position: sticky; top: 0; height: var(--stage-h); overflow: hidden;
+  position: sticky; top: var(--header-h); height: var(--stage-h); overflow: hidden;
   background: linear-gradient(to bottom, #eef2f3 0%, #bfc9d0 49.35%, #eef2f3 49.35%, #eef2f3 100%);
 }
+/* Layers: logo, then the ground in front of it (so only the part above the
+   horizon shows), then the car, then the text and controls. */
+.showroom-ground { position: absolute; left: 0; right: 0; top: 49.35%; bottom: 0; background: #eef2f3; z-index: 2; }
+.scene-logo { z-index: 1; }
+.scene-car { z-index: 3; }
+.scene-text { z-index: 4; }
+.showroom-switch, .showroom-dots { z-index: 5; }
 .scene {
   --car-w: min(var(--car-w-max), calc((var(--stage-h) * var(--ground-f) - var(--top-room)) / var(--aspect)));
   position: absolute; inset: 0; pointer-events: none;
@@ -614,4 +622,27 @@ main:has(> .showroom) { max-width: none; padding: 0; }
 @media (max-width: 700px) {
   /* Phones: dots in the open sky above the car, clear of the text. */
   .showroom-dots { top: calc(var(--stage-h) * 0.33); }
+}
+
+/* Logos: as wide as before, but never taller than a third of the stage. */
+.scene {
+  --logo-w: min(calc(var(--car-w) * 1.13), calc(100vw - 32px), calc(var(--stage-h) * 0.34 / var(--logo-aspect)));
+}
+.scene-logo {
+  width: var(--logo-w);
+  top: calc(var(--stage-h) * var(--ground-f) - var(--car-w) * var(--aspect) * 0.9 - var(--logo-w) * var(--logo-aspect) / 2);
+}
+
+/* View switch: its right edge lines up with "Add a car" in both views, and it doesn't move between them. */
+.view-switch { padding-right: 0; }
+.showroom-switch { right: max(30px, calc((100% - var(--page-max)) / 2 + 30px)); }
+.showroom-dots { right: max(37px, calc((100% - var(--page-max)) / 2 + 37px)); }
+.car-list-switch { margin-right: calc(30px - var(--gutter)); }
+@media (max-width: 1024px) {
+  .showroom-switch { right: 24px; }
+  .car-list-switch { margin-right: 0; }
+}
+@media (max-width: 700px) {
+  .showroom-switch { right: 16px; }
+  .showroom-dots { right: 10px; }
 }

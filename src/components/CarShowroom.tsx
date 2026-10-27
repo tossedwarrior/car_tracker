@@ -14,6 +14,12 @@ import { ViewSwitch } from "./ViewSwitch";
 // says where everything is. Wheels roll with the distance driven, so they
 // speed up, slow down and reverse with the car.
 
+/** Page scroll at which the stage pins (just under the pinned header): the first car's spot. */
+function scrollStart(section: HTMLElement, stage: HTMLElement) {
+  const pinnedAt = parseFloat(getComputedStyle(stage).top) || 0;
+  return Math.max(0, section.getBoundingClientRect().top + window.scrollY - pinnedAt);
+}
+
 interface Parts {
   car: HTMLDivElement | null;
   wheels: (HTMLDivElement | null)[];
@@ -34,9 +40,8 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
     if (!el || !st) return;
     const screen = st.clientHeight;
     const stageW = st.clientWidth;
-    const top = el.getBoundingClientRect().top + window.scrollY;
     // 0 at the first car, 1 at the second, and so on.
-    const s = Math.min(cars.length - 1, (window.scrollY - top) / screen);
+    const s = Math.min(cars.length - 1, (window.scrollY - scrollStart(el, st)) / screen);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     cars.forEach((carInfo, i) => {
@@ -110,9 +115,8 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
     const el = section.current;
     const st = stage.current;
     if (!el || !st) return;
-    const top = el.getBoundingClientRect().top + window.scrollY;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: i === 0 ? 0 : top + i * st.clientHeight, behavior: reduce ? "auto" : "smooth" });
+    window.scrollTo({ top: scrollStart(el, st) + i * st.clientHeight, behavior: reduce ? "auto" : "smooth" });
   };
 
   return (
@@ -128,6 +132,7 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
       ))}
 
       <div ref={stage} className="showroom-stage">
+        <div className="showroom-ground" aria-hidden="true" />
         {cars.map((car, i) => {
           const photo = car.images.photo;
           const logo = car.images.logo;

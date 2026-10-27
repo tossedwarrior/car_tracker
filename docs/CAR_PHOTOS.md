@@ -37,6 +37,7 @@ moves, one full turn for every wheel circumference driven, so they never skid.
 | **Background** | Transparent. |
 | **Crop** | Tight to the logo, no padding. |
 | **Colour** | Any. It's shown very faintly (5% opacity) behind the car, so a solid dark logo works best. |
+| **Shape** | Just the emblem, not a badge with a filled background. For Ferrari, the prancing horse rather than the yellow shield: a filled shield shows as a pale block. |
 | **Size** | SVG is ideal. Otherwise a PNG at least **1600 px wide**. |
 
 ## How they're sized on screen
@@ -47,8 +48,9 @@ You don't size anything yourself: the app does it per screen.
   tyres on a ground line 58% of the way down the stage. A tall car (an SUV) is
   scaled down so it never runs into the title.
 - **Phone:** the car is 84% of the screen wide.
-- **Logo:** 1.13 × the car's width (never wider than the screen), centred
-  above the car.
+- **Logo:** 1.13 × the car's width, but never taller than a third of the
+  screen or wider than the screen, centred above the car. It sits behind the
+  grey ground, so only the part above the horizon shows.
 
 Because every photo is cropped tight to the car, every car sits on the same
 ground line and lines up the same way on any device.
