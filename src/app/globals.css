@@ -726,19 +726,24 @@ header.site { position: relative; z-index: 20; }
   .car-row + .car-row { margin-top: 64px; }
 }
 
-/* Short phones: not enough height to stack the stats, so they sit in a row. */
-@media (max-width: 700px) and (max-height: 780px) {
-  .scene .car-stats { grid-template-columns: repeat(3, auto); gap: 0 14px; }
-  .scene .car-stat-label { font-size: 14px; }
-  .scene .car-stat-value { font-size: 20px; gap: 6px; }
-  .scene .car-stat-sub { font-size: 12px; }
-  .scene-details { gap: 28px; padding: 0 16px; }
-}
 @media (max-width: 700px) {
-  /* Spacing from the phone frames: stats 106px apart, button 31px below them. */
   .scene-years, .car-row-head .scene-years { margin-bottom: 6px; }
-  .scene .car-stats { row-gap: 23px; }
-  .scene-details { gap: 31px; }
+  /* The stacked, centered stats from Figma 21:204 on every phone. Phone
+     browsers show less height than the frame once their toolbars are on
+     screen, so the stats and button shrink with the stage height instead of
+     changing shape: --k is 1px on the 852px-tall frame (a 773px stage). */
+  .showroom {
+    --k: min(1px, calc(var(--stage-h) / 773));
+    /* The car too: 307px wide on the frame, so it clears the name on short screens. */
+    --car-w-max: min(78vw, calc(307 * var(--k)));
+  }
+  .scene-details { gap: calc(31 * var(--k)); }
+  .scene .car-stats { row-gap: calc(23 * var(--k)); }
+  .scene .car-stats > div { gap: calc(8 * var(--k)); }
+  .scene .car-stat-label { font-size: max(12px, calc(16 * var(--k))); }
+  .scene .car-stat-value { font-size: max(18px, calc(24 * var(--k))); }
+  .scene .car-stat-sub { font-size: max(11px, calc(14 * var(--k))); min-height: calc(17 * var(--k)); }
+  .scene-details .pill-button { font-size: max(14px, calc(16 * var(--k))); padding: calc(14 * var(--k)) 43px; }
 }
 @media (max-width: 700px) {
   .car-list-switch { margin-bottom: 32px; }
