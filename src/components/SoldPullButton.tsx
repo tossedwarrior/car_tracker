@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { pullSold, type SoldPullState } from "@/app/actions";
+import { Icon } from "./Icon";
 
 export function SoldPullButton({ watchId, callsLeft }: { watchId: number; callsLeft: number }) {
   const [state, action, pending] = useActionState(pullSold, {} as SoldPullState);
@@ -16,8 +17,9 @@ export function SoldPullButton({ watchId, callsLeft }: { watchId: number; callsL
       }}
     >
       <input type="hidden" name="watchId" value={watchId} />
-      <button type="submit" className="button" disabled={pending || callsLeft <= 0}>
-        {pending ? "Updating…" : "Update sold prices"}
+      <button type="submit" className="text-action" disabled={pending || callsLeft <= 0}>
+        <Icon name="refresh" />
+        <span>{pending ? "Updating…" : "Update sold prices"}</span>
       </button>
       {!pending && state.message && <span className="muted small">{state.message}</span>}
       {!pending && state.error && <span className="error small">{state.error}</span>}

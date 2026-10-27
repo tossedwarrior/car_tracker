@@ -1,13 +1,16 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { checkRuns, watchlist } from "@/db/schema";
+import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { callsPerWatch } from "@/jobs/budget";
+import { getDisplayCurrency } from "@/lib/display-currency";
 import { allSources, hasApiKey } from "@/sources";
 import { getUsage, monthKey } from "@/sources/usage";
 
 export const dynamic = "force-dynamic";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const currency = await getDisplayCurrency();
   const now = new Date();
   const month = new Date(`${monthKey(now)}-01T12:00:00Z`).toLocaleDateString("en-CA", {
     month: "long",
@@ -27,7 +30,18 @@ export default function SettingsPage() {
 
   return (
     <>
-      <h1>Settings</h1>
+      <div className="page-head">
+        <h1>Settings</h1>
+      </div>
+
+      <section>
+        <h2>Show prices in</h2>
+        <CurrencyToggle current={currency} />
+        <p className="muted small">
+          Prices in other currencies are converted at the Bank of Canada&apos;s rate, with the original
+          shown underneath.
+        </p>
+      </section>
 
       <section>
         <h2>API calls in {month}</h2>

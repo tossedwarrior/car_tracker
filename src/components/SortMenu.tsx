@@ -1,8 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Icon } from "./Icon";
 
-/** A "Sort by" dropdown; each option is a link the page builds. */
+/**
+ * "Sort by: price: low to high" (Figma 16:43). The visible text is the design;
+ * a transparent native select on top does the choosing, so it works with a
+ * keyboard, a screen reader and a phone's own picker.
+ */
 export function SortMenu({
   current,
   options,
@@ -11,10 +16,14 @@ export function SortMenu({
   options: Array<{ value: string; label: string; href: string }>;
 }) {
   const router = useRouter();
+  const label = options.find((o) => o.value === current)?.label ?? "";
   return (
     <label className="sort-menu">
-      <span className="muted small">Sort by</span>
+      <Icon name="sort" />
+      <span aria-hidden="true">Sort by: {label.charAt(0).toLowerCase() + label.slice(1)}</span>
+      <Icon name="chevron-down" />
       <select
+        aria-label="Sort by"
         value={current}
         onChange={(e) => {
           const option = options.find((o) => o.value === e.target.value);

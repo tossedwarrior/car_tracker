@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { refreshListings, type RefreshState } from "@/app/actions";
+import { Icon } from "./Icon";
 
 /** Ask before a refresh that could use more than this many API calls. */
 const CONFIRM_ABOVE_CALLS = 20;
@@ -32,8 +33,9 @@ export function RefreshButton({
       }}
     >
       {watchId && <input type="hidden" name="watchId" value={watchId} />}
-      <button type="submit" className="button" disabled={pending || maxCalls === 0}>
-        {pending ? "Refreshing…" : label}
+      <button type="submit" className="text-action" disabled={pending || maxCalls === 0}>
+        <Icon name="refresh" />
+        <span>{pending ? "Refreshing…" : label}</span>
       </button>
       {state.log && !pending && (
         <details className="refresh-result" open={state.status !== "ok"}>

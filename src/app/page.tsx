@@ -31,9 +31,6 @@ export default async function WatchlistPage() {
           {activeCount > 0 && (
             <RefreshButton maxCalls={maxRefreshCalls(activeCount)} label="Refresh all" />
           )}
-          <Link href="/watch/new" className="button primary">
-            Add a car
-          </Link>
         </div>
       </div>
 

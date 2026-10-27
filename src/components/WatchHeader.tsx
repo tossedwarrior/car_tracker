@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { formatKm, formatPrice, formatYears, timeAgo, watchTitle } from "@/lib/format";
 import type { Watch } from "@/lib/watchlist";
+import { Icon } from "./Icon";
 
-/** Title, criteria and the For sale / Sold / Market tabs shared by a watched car's pages. */
+/**
+ * A watched car's header and For sale / Sold / Market tabs (Figma 16:9–16:36):
+ * back link, year range, name, actions, last refresh, personal notes.
+ */
 export function WatchHeader({
   watch,
   tab,
@@ -15,29 +19,48 @@ export function WatchHeader({
   tab: "listings" | "sold" | "market";
   forSaleCount: number;
   soldCount: number;
-  /** e.g. "Refreshed 5 min ago" */
+  /** e.g. "Listings refreshed 1 day ago" */
   updated: string;
   action?: React.ReactNode;
 }) {
+  const criteria = [
+    watch.maxKm ? `under ${formatKm(watch.maxKm)}` : null,
+    watch.targetPrice ? `target ${formatPrice(watch.targetPrice, watch.targetCurrency)}` : null,
+  ].filter(Boolean);
+
   return (
     <>
-      <p className="crumb">
-        <Link href="/">Watchlist</Link>
-      </p>
-      <div className="page-head">
+      <div className="car-head">
+        <Link href="/" className="text-action car-back">
+          <Icon name="arrow-back" />
+          <span>Back to watchlist</span>
+        </Link>
+
         <div>
+          <p className="car-years">
+            {formatYears(watch.yearMin, watch.yearMax).replace("–", " - ")}
+            {criteria.length > 0 && <span className="small"> · {criteria.join(" · ")}</span>}
+          </p>
           <h1>{watchTitle(watch)}</h1>
-          <p className="muted">{criteria(watch)}</p>
-          <p className="muted small">{updated}</p>
         </div>
-        <div className="head-actions">
+
+        <div className="car-actions">
           {action}
-          <Link href={`/watch/${watch.id}/edit`} className="button">
-            Edit
+          <Link href={`/watch/${watch.id}/edit`} className="text-action">
+            <Icon name="edit" />
+            <span>Edit</span>
           </Link>
         </div>
+
+        <p className="car-refreshed">{updated}</p>
+
+        {watch.notes && (
+          <div className="car-notes">
+            <p className="label">Personal notes</p>
+            <p>{watch.notes}</p>
+          </div>
+        )}
       </div>
-      {watch.notes && <p className="notes">{watch.notes}</p>}
 
       <nav className="tabs" aria-label="Views">
         <Link href={`/watch/${watch.id}`} aria-current={tab === "listings" ? "page" : undefined}>
@@ -56,14 +79,4 @@ export function WatchHeader({
 
 export function updatedText(label: string, iso: string | null, never: string) {
   return iso ? `${label} ${timeAgo(iso)}` : never;
-}
-
-function criteria(w: Watch) {
-  return [
-    formatYears(w.yearMin, w.yearMax),
-    w.maxKm ? `under ${formatKm(w.maxKm)}` : null,
-    w.targetPrice ? `target ${formatPrice(w.targetPrice, w.targetCurrency)}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
 }

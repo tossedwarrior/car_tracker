@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Money } from "@/components/Money";
+import { Icon } from "@/components/Icon";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SortMenu } from "@/components/SortMenu";
 import { updatedText, WatchHeader } from "@/components/WatchHeader";
@@ -75,6 +75,11 @@ export default async function WatchListingsPage({
       />
 
       <div className="toolbar">
+        {goneCount > 0 && (
+          <Link href={href({ gone: !includeGone })} className="muted">
+            {includeGone ? "Hide" : "Show"} {goneCount} gone
+          </Link>
+        )}
         <SortMenu
           current={sort}
           options={(Object.keys(listingSorts) as ListingSort[]).map((key) => ({
@@ -83,11 +88,6 @@ export default async function WatchListingsPage({
             href: href({ sort: key }),
           }))}
         />
-        {goneCount > 0 && (
-          <Link href={href({ gone: !includeGone })} className="muted">
-            {includeGone ? "Hide" : "Show"} {goneCount} gone
-          </Link>
-        )}
       </div>
 
       {rows.length === 0 ? (
@@ -96,31 +96,22 @@ export default async function WatchListingsPage({
           <p className="muted">Press Refresh to search for matching cars.</p>
         </div>
       ) : (
-        <div className="table-wrap">
-          <table className="listings">
-            <thead>
-              <tr>
-                <th className="num">Price</th>
-                <th>Car</th>
-                <th className="num">Mileage</th>
-                <th>Location</th>
-                <th>Seller</th>
-                <th className="num">Days listed</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((l) => (
-                <ListingRow key={l.id} listing={l} watch={watch} rates={rates} display={display} />
-              ))}
-            </tbody>
-          </table>
+        <div className="listing-table" role="table" aria-label="Cars for sale">
+          <div className="listing-row head" role="row">
+            <div role="columnheader">Price</div>
+            <div role="columnheader">Car</div>
+            <div role="columnheader">Mileage</div>
+            <div role="columnheader">Location</div>
+            <div role="columnheader">Seller</div>
+            <div role="columnheader">Days listed</div>
+            <div role="columnheader">
+              <span className="sr-only">Fix</span>
+            </div>
+          </div>
+          {rows.map((l) => (
+            <ListingRow key={l.id} listing={l} watch={watch} rates={rates} display={display} />
+          ))}
         </div>
-      )}
-      {rows.length > 0 && (
-        <p className="muted small">
-          {rows.length} {includeGone ? "listings" : "for sale"}
-        </p>
       )}
     </>
   );
@@ -140,38 +131,57 @@ function ListingRow({
   const days = daysSince(l.listedAt ?? l.firstSeen);
   const underTarget = l.status === "active" && isUnderTarget(rates, l, watch);
   const gone = l.status === "gone";
+  const shown = showMoney(rates, display, l.price, l.currency);
+  const car = [l.year, l.trim && l.trim !== "Base" ? l.trim : l.model].filter(Boolean).join(" ");
+  const corrected = !!(l.currencyOverride || l.locationOverride);
 
   return (
-    <tr className={gone ? "gone" : undefined}>
-      <td className="num">
-        <Money shown={showMoney(rates, display, l.price, l.currency)} strong />
-        {underTarget && <span className="badge good">Under target</span>}
-        {gone && <span className="badge">Gone</span>}
-      </td>
-      <td>
-        {l.year} {l.trim ?? l.model}
-        {l.vin && <div className="muted small mono">{l.vin}</div>}
-      </td>
-      <td className="num">{formatKm(l.km)}</td>
-      <td>{l.location ?? "—"}</td>
-      <td>
-        {l.sellerName ?? "—"}
-        {sellerLabels[l.sellerType] && <div className="muted small">{sellerLabels[l.sellerType]}</div>}
-      </td>
-      <td className="num">{days}</td>
-      <td>
-        {l.url && (
-          <a href={l.url} target="_blank" rel="noopener noreferrer">
-            View ad
+    <div className={`listing-row${gone ? " gone" : ""}`} role="row">
+      <div className="cell-price" role="cell">
+        {shown.main}
+        {shown.original && <span className="sub">{shown.original}</span>}
+        {underTarget && <span className="tag good">Under target</span>}
+        {gone && <span className="tag">Gone</span>}
+      </div>
+      <div className="cell-car" role="cell">
+        {l.url ? (
+          <a className="car-link" href={l.url} target="_blank" rel="noopener noreferrer">
+            {car}
           </a>
+        ) : (
+          car
         )}
-        <div className="small">
-          <Link href={`/listing/${l.id}/fix`} className="muted">
-            {l.currencyOverride || l.locationOverride ? "Corrected" : "Fix"}
-          </Link>
-        </div>
-      </td>
-    </tr>
+        {l.vin && <span className="sub">{l.vin}</span>}
+      </div>
+      <div className="cell-meta" role="cell">
+        <span className="meta-label">Mileage</span>
+        <span>{formatKm(l.km)}</span>
+      </div>
+      <div className="cell-meta" role="cell">
+        <span className="meta-label">Location</span>
+        <span>{l.location ?? "—"}</span>
+      </div>
+      <div className="cell-meta" role="cell">
+        <span className="meta-label">Seller</span>
+        <span>
+          {l.sellerName ?? "—"}
+          {sellerLabels[l.sellerType] && <span className="sub">{sellerLabels[l.sellerType]}</span>}
+        </span>
+      </div>
+      <div className="cell-meta" role="cell">
+        <span className="meta-label">Days listed</span>
+        <span>{days}</span>
+      </div>
+      <div className="cell-edit" role="cell">
+        <Link
+          href={`/listing/${l.id}/fix`}
+          className="icon-link"
+          title={corrected ? "Corrected by hand. Change the correction" : "Fix this listing's currency or location"}
+          aria-label={corrected ? "Change correction" : "Fix listing"}
+        >
+          <Icon name="edit" />
+        </Link>
+      </div>
+    </div>
   );
 }
-
