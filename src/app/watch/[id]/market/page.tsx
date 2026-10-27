@@ -100,7 +100,7 @@ export default async function MarketPage({
         action={
           <>
             {watch.active && (
-              <RefreshButton watchId={watch.id} maxCalls={maxRefreshCalls(1)} label="Refresh listings" />
+              <RefreshButton watchId={watch.id} maxCalls={maxRefreshCalls(1)} label="Refresh listings" shortLabel="Refresh" />
             )}
             {hasApiKey(soldSource) && (
               <SoldPullButton

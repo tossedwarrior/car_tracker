@@ -360,3 +360,16 @@ main > .crumb + h1 { margin-top: 0; }
   .listing-row > .cell-price { font-size: inherit; }
   .listing-row > .cell-car { margin-bottom: 0; }
 }
+
+/* Phones: header actions at 16px with 8px between icon and text, so they fit. */
+@media (max-width: 700px) {
+  .text-action { font-size: 16px; gap: 8px; }
+  .car-actions { flex-wrap: wrap; gap: 12px 20px; }
+}
+.label-short { display: none; }
+@media (max-width: 700px) {
+  .label-long { display: none; }
+  .label-short { display: inline; }
+  .car-actions { gap: 12px 16px; }
+  .toolbar.start { margin-bottom: 24px; }
+}

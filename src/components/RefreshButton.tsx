@@ -11,11 +11,14 @@ export function RefreshButton({
   watchId,
   maxCalls,
   label = "Refresh",
+  shortLabel,
 }: {
   /** Refresh one watched car; omit for all of them. */
   watchId?: number;
   maxCalls: number;
   label?: string;
+  /** A shorter label for phones, where space is tight. */
+  shortLabel?: string;
 }) {
   const [state, action, pending] = useActionState(refreshListings, {} as RefreshState);
 
@@ -35,7 +38,16 @@ export function RefreshButton({
       {watchId && <input type="hidden" name="watchId" value={watchId} />}
       <button type="submit" className="text-action" disabled={pending || maxCalls === 0}>
         <Icon name="refresh" />
-        <span>{pending ? "Refreshing…" : label}</span>
+        {pending ? (
+          <span>Refreshing…</span>
+        ) : shortLabel ? (
+          <>
+            <span className="label-long">{label}</span>
+            <span className="label-short">{shortLabel}</span>
+          </>
+        ) : (
+          <span>{label}</span>
+        )}
       </button>
       {state.log && !pending && (
         <details className="refresh-result" open={state.status !== "ok"}>
