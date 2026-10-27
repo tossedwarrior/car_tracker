@@ -113,7 +113,7 @@ export default async function MarketPage({
       />
 
       {all.variants.length > 1 && (
-        <div className="toolbar">
+        <div className="toolbar start">
           <nav className="segmented wrap" aria-label="Variant">
             <Link href={href(null)} aria-current={!variant ? "true" : undefined}>
               All
