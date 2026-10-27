@@ -558,8 +558,6 @@ body:has(.showroom) header.site { position: sticky; top: 0; z-index: 20; }
 .car-list-switch .view-switch { background: #fff; }
 .car-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
 .car-row + .car-row { margin-top: 96px; }
-.car-row-text { display: flex; flex-direction: column; align-items: flex-start; }
-.car-row-text .scene-years { margin-bottom: 16px; }
 .car-row-title { font-size: clamp(34px, 4vw, 60px); font-weight: 700; line-height: 1.02; margin: 0 0 60px; letter-spacing: -0.01em; }
 .car-row-title a { text-decoration: none; }
 .car-row .car-stats { gap: 0 80px; justify-content: start; text-align: left; opacity: 0.8; margin-bottom: 60px; }
@@ -645,4 +643,111 @@ body:has(.showroom) header.site { position: sticky; top: 0; z-index: 20; }
 @media (max-width: 700px) {
   .showroom-switch { right: 16px; }
   .showroom-dots { right: 10px; }
+}
+
+/* ---------- Home list view: heading / photo / details ---------- */
+.car-row {
+  grid-template-areas: "head panel" "body panel";
+  grid-template-rows: auto 1fr;
+  row-gap: 0;
+}
+.car-row-head { grid-area: head; }
+.car-row-panel { grid-area: panel; order: 0; }
+.car-row-body { grid-area: body; display: flex; flex-direction: column; align-items: flex-start; }
+.car-row-head .scene-years { margin-bottom: 16px; }
+/* Logos in the photo panel: never taller than about 45% of the panel. */
+.car-row-logo { width: min(82%, calc(24% / var(--logo-aspect))); }
+@media (max-width: 900px) {
+  .car-row { grid-template-areas: "head" "panel" "body"; grid-template-rows: none; gap: 0; }
+  .car-row-head .car-row-title { margin-bottom: 21px; }
+  .car-row-panel { margin-bottom: 32px; }
+}
+
+/* ---------- Header menu (phones, Figma 21:205) ---------- */
+header.site { position: relative; z-index: 20; }
+.site-nav { position: static; }
+.menu-button { display: none; }
+
+/* ---------- Phones: Figma 21:204 (expanded) and 24:290 (list) ---------- */
+@media (max-width: 700px) {
+  :root { --header-h: 79px; --gutter: 32px; }
+  header.site .inner { min-height: var(--header-h); padding: 0 30px; }
+  header.site .brand { font-size: 24px; }
+  .menu-button {
+    display: inline-flex; position: relative; padding: 4px; margin: -4px; border: 0; background: none; cursor: pointer;
+  }
+  .menu-button img { width: 24px; height: 24px; }
+  .menu-dot {
+    position: absolute; top: 2px; right: 0; width: 9px; height: 9px; border-radius: 50%;
+    background: #000; box-shadow: 0 0 0 2px #fff;
+  }
+  header.site nav { display: none; }
+  header.site nav.open {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 20px;
+    position: absolute; left: 0; right: 0; top: 100%; padding: 12px 30px 32px;
+    background: #fff; box-shadow: 0 16px 24px rgb(0 0 0 / 0.06);
+  }
+  header.site nav.open a { font-size: 24px; }
+
+  /* Expanded view */
+  .showroom {
+    --ground-f: 0.4;
+    --car-w-max: 78vw;
+    --top-room: calc(var(--stage-h) * 0.25);
+  }
+  .showroom-stage { background: linear-gradient(to bottom, #eef2f3 0%, #cbd3d9 36.74%, #eef2f3 36.74%, #eef2f3 100%); }
+  .showroom-ground { top: 36.74%; }
+  .scene-heading { top: calc(var(--stage-h) * 96 / 773); padding: 0 32px; }
+  .scene-years { font-size: 24px; margin-bottom: 12px; }
+  .scene-title { font-size: 36px; }
+  .scene-details { top: calc(var(--stage-h) * 328 / 773); gap: 44px; padding: 0 32px; }
+  .scene .car-stats { grid-template-columns: 1fr; gap: 36px; }
+  .car-stats > div { gap: 8px; }
+  .car-stat-label { font-size: 16px; }
+  .car-stat-value { font-size: 24px; gap: 13px; }
+  .car-stat-sub { font-size: 14px; min-height: 17px; }
+  .trend-arrow { width: 16px; height: 16px; }
+  .scene-details .pill-button, .car-row-body .pill-button { font-size: 16px; padding: 14px 43px; flex: none; }
+  .showroom-switch { top: 20px; left: 32px; right: auto; }
+  .view-switch { font-size: 16px; padding: 6px 12px 6px 24px; gap: 10px; }
+  .view-switch button { padding: 8px 16px; }
+  .view-switch img { width: 16px; height: 16px; }
+  .showroom-dots {
+    top: auto; bottom: calc(var(--stage-h) * 19 / 773); left: 50%; right: auto; transform: translateX(-50%);
+    flex-direction: row; gap: 24px;
+  }
+  .showroom-dot { width: 18px; height: 18px; }
+
+  /* List view */
+  .car-list-switch { justify-content: flex-start; margin: -4px 0 36px; }
+  .car-row-head .scene-years { margin-bottom: 12px; }
+  .car-row-head .car-row-title { font-size: 36px; }
+  .car-row .car-stats { grid-template-columns: 179px auto; gap: 36px 0; opacity: 1; margin-bottom: 44px; }
+  .car-row + .car-row { margin-top: 64px; }
+}
+
+/* Short phones: not enough height to stack the stats, so they sit in a row. */
+@media (max-width: 700px) and (max-height: 780px) {
+  .scene .car-stats { grid-template-columns: repeat(3, auto); gap: 0 14px; }
+  .scene .car-stat-label { font-size: 14px; }
+  .scene .car-stat-value { font-size: 20px; gap: 6px; }
+  .scene .car-stat-sub { font-size: 12px; }
+  .scene-details { gap: 28px; padding: 0 16px; }
+}
+@media (max-width: 700px) {
+  /* Spacing from the phone frames: stats 106px apart, button 31px below them. */
+  .scene-years, .car-row-head .scene-years { margin-bottom: 6px; }
+  .scene .car-stats { row-gap: 23px; }
+  .scene-details { gap: 31px; }
+}
+@media (max-width: 700px) {
+  .car-list-switch { margin-bottom: 32px; }
+  .car-row .car-stats { row-gap: 23px; margin-bottom: 31px; }
+}
+@media (max-width: 700px) {
+  .car-row-head .car-row-title { margin-bottom: 27px; }
+}
+/* Car page tabs run to the right screen edge on phones, so all three fit at 375px. */
+@media (max-width: 700px) {
+  .tabs { margin-right: calc(-1 * var(--gutter)); }
 }
