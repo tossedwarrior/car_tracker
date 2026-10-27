@@ -43,6 +43,12 @@ export async function saveWatch(
   const watchId = id ?? createWatch(parsed.values);
   if (logo.image) saveImage(watchId, "logo", logo.image);
   if (photo.image) saveImage(watchId, "photo", photo.image);
+  const { parseWheels } = await import("@/lib/wheels");
+  const { saveCarPhotoSettings } = await import("@/lib/images");
+  saveCarPhotoSettings(watchId, {
+    wheels: parseWheels(String(form.get("wheels") ?? "")),
+    facesRight: form.get("facesRight") === "on",
+  });
 
   revalidatePath("/");
   redirect(`/watch/${watchId}`);
@@ -126,4 +132,14 @@ export async function fixListing(form: FormData) {
   );
   revalidatePath("/", "layout");
   redirect(`/watch/${listing.watchId}`);
+}
+
+export async function setHomeView(form: FormData) {
+  const { cookies } = await import("next/headers");
+  (await cookies()).set("home_view", form.get("view") === "list" ? "list" : "expanded", {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365 * 5,
+    sameSite: "lax",
+  });
+  revalidatePath("/");
 }

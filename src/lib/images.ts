@@ -1,6 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { watchImages, type ImageKind } from "@/db/schema";
+import { imageSize } from "./image-size";
+import { parseWheels, type WheelSpec } from "./wheels";
 
 // A watched car's brand logo and car photo: checked, stored in the database,
 // and served back by /api/watch/[id]/image/[kind].
@@ -26,6 +28,8 @@ export interface ImageUpload {
   contentType: string;
   data: Buffer;
   fileName: string;
+  width: number | null;
+  height: number | null;
 }
 
 /**
@@ -43,11 +47,13 @@ export async function readImageUpload(
   const data = Buffer.from(await file.arrayBuffer());
   const contentType = sniffImageType(data);
   if (!contentType) return { error: "Choose a PNG, JPEG, WebP or SVG image" };
-  return { image: { contentType, data, fileName: file.name } };
+  const size = imageSize(data, contentType);
+  return { image: { contentType, data, fileName: file.name, width: size?.width ?? null, height: size?.height ?? null } };
 }
 
+/** Save an image. A new car photo forgets the old one's wheel positions. */
 export function saveImage(watchId: number, kind: ImageKind, image: ImageUpload, now = new Date()) {
-  const values = { ...image, updatedAt: now.toISOString() };
+  const values = { ...image, updatedAt: now.toISOString(), ...(kind === "photo" ? { wheels: null } : {}) };
   db.insert(watchImages)
     .values({ watchId, kind, ...values })
     .onConflictDoUpdate({ target: [watchImages.watchId, watchImages.kind], set: values })
@@ -74,3 +80,48 @@ export function imageVersions(watchId: number): Partial<Record<ImageKind, string
 
 export const imageUrl = (watchId: number, kind: ImageKind, version: string) =>
   `/api/watch/${watchId}/image/${kind}?v=${encodeURIComponent(version)}`;
+
+/** Where the car photo's wheels are, and which way the car faces. */
+export function saveCarPhotoSettings(
+  watchId: number,
+  { wheels, facesRight }: { wheels: WheelSpec | null; facesRight: boolean },
+) {
+  db.update(watchImages)
+    .set({ wheels: wheels ? JSON.stringify(wheels) : null, facesRight })
+    .where(and(eq(watchImages.watchId, watchId), eq(watchImages.kind, "photo")))
+    .run();
+}
+
+export interface ShownImage {
+  url: string;
+  width: number | null;
+  height: number | null;
+}
+
+export interface CarImages {
+  logo?: ShownImage;
+  photo?: ShownImage & { wheels: WheelSpec | null; facesRight: boolean };
+}
+
+/** A car's logo and photo, ready to show: URLs, sizes, wheels. */
+export function getCarImages(watchId: number): CarImages {
+  const rows = db
+    .select({
+      kind: watchImages.kind,
+      updatedAt: watchImages.updatedAt,
+      width: watchImages.width,
+      height: watchImages.height,
+      wheels: watchImages.wheels,
+      facesRight: watchImages.facesRight,
+    })
+    .from(watchImages)
+    .where(eq(watchImages.watchId, watchId))
+    .all();
+  const out: CarImages = {};
+  for (const r of rows) {
+    const shown = { url: imageUrl(watchId, r.kind, r.updatedAt), width: r.width, height: r.height };
+    if (r.kind === "logo") out.logo = shown;
+    else out.photo = { ...shown, wheels: parseWheels(r.wheels), facesRight: r.facesRight };
+  }
+  return out;
+}

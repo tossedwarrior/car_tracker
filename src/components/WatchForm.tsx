@@ -4,7 +4,9 @@ import Link from "next/link";
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { saveWatch, type WatchFormState } from "@/app/actions";
 import type { Watch } from "@/lib/watchlist";
+import type { WheelSpec } from "@/lib/wheels";
 import { Icon } from "./Icon";
+import { WheelMarker } from "./WheelMarker";
 
 const initial: WatchFormState = { errors: {} };
 const IMAGE_ACCEPT = ".png,.jpg,.jpeg,.webp,.svg";
@@ -18,9 +20,11 @@ export function WatchForm({
   images = {},
 }: {
   watch?: Watch;
-  /** Current image URLs when editing. */
-  images?: { logo?: string; photo?: string };
+  /** Current images when editing. */
+  images?: { logo?: string; photo?: string; wheels?: WheelSpec | null; facesRight?: boolean };
 }) {
+  // The car photo being shown: a newly chosen file, else the current one.
+  const [photoSrc, setPhotoSrc] = useState<string | undefined>(images.photo);
   const [state, action, pending] = useActionState(saveWatch, initial);
   const e = state.errors;
   const v = (name: keyof Watch) => state.values?.[name] ?? watch?.[name];
@@ -62,8 +66,35 @@ export function WatchForm({
         <textarea className="pill-input pill-textarea" name="notes" defaultValue={String(v("notes") ?? "")} placeholder="Manual cars only" />
       </label>
 
-      <ImageField name="logo" label="Brand logo" prompt="Upload logo" required={adding} current={images.logo} error={e.logo} />
-      <ImageField name="photo" label="Car photo" prompt="Upload photo" required={adding} current={images.photo} error={e.photo} />
+      <ImageField
+        name="logo"
+        label="Brand logo"
+        prompt="Upload logo"
+        required={adding}
+        current={images.logo}
+        error={e.logo}
+        hint="Transparent background, cropped tight. SVG, or PNG at least 1600 px wide."
+      />
+      <ImageField
+        name="photo"
+        label="Car photo"
+        prompt="Upload photo"
+        required={adding}
+        current={images.photo}
+        error={e.photo}
+        hint="Side-on, background removed, cropped tight to the car, at least 2000 px wide. Facing left is best."
+        onPreview={(url) => setPhotoSrc(url ?? images.photo)}
+      />
+      {photoSrc && (
+        <div className="wide">
+          <WheelMarker
+            src={photoSrc}
+            // A newly chosen photo starts with a fresh guess.
+            initialWheels={photoSrc === images.photo ? (images.wheels ?? null) : null}
+            initialFacesRight={images.facesRight ?? false}
+          />
+        </div>
+      )}
 
       <div className="form-buttons wide">
         <button type="submit" className="pill-button primary" disabled={pending}>
@@ -118,6 +149,8 @@ function ImageField({
   required,
   current,
   error,
+  hint,
+  onPreview,
 }: {
   name: string;
   label: string;
@@ -125,6 +158,9 @@ function ImageField({
   required: boolean;
   current?: string;
   error?: string;
+  hint?: string;
+  /** Called with the chosen file's preview URL (or undefined when cleared). */
+  onPreview?: (url: string | undefined) => void;
 }) {
   const [chosen, setChosen] = useState<{ url: string; name: string } | null>(null);
   // Free the preview's memory when it's replaced or the form goes away.
@@ -155,11 +191,13 @@ function ImageField({
           aria-invalid={!!error}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
-            setChosen(file ? { url: URL.createObjectURL(file), name: file.name } : null);
+            const next = file ? { url: URL.createObjectURL(file), name: file.name } : null;
+            setChosen(next);
+            onPreview?.(next?.url);
           }}
         />
       </span>
-      {error && <em className="error">{error}</em>}
+      {error ? <em className="error">{error}</em> : hint && <small className="muted small">{hint}</small>}
     </label>
   );
 }

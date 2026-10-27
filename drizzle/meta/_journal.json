@@ -43,6 +43,13 @@
       "when": 1793118082302,
       "tag": "0005_watch_images",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793119036659,
+      "tag": "0006_car_photo_wheels",
+      "breakpoints": true
     }
   ]
 }

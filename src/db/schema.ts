@@ -234,6 +234,13 @@ export const watchImages = sqliteTable(
     contentType: text("content_type").notNull(),
     data: blob("data", { mode: "buffer" }).notNull(),
     fileName: text("file_name"),
+    // Pixel size, so pages can reserve the right space before the image loads.
+    width: integer("width"),
+    height: integer("height"),
+    // Car photos only: where the two wheels are, so they can turn (JSON,
+    // see WheelSpec in src/lib/wheels.ts), and whether the car faces right.
+    wheels: text("wheels"),
+    facesRight: integer("faces_right", { mode: "boolean" }).notNull().default(false),
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [uniqueIndex("watch_images_watch_kind_uq").on(t.watchId, t.kind)],

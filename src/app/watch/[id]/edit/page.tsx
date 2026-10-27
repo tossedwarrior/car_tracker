@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { DeleteWatchButton } from "@/components/DeleteWatchButton";
 import { WatchForm } from "@/components/WatchForm";
 import { watchTitle } from "@/lib/format";
-import { imageUrl, imageVersions } from "@/lib/images";
+import { getCarImages } from "@/lib/images";
 import { getWatch } from "@/lib/watchlist";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function EditWatchPage({ params }: { params: Promise<{ id: string }> }) {
   const watch = getWatch(Number((await params).id));
   if (!watch) notFound();
-  const versions = imageVersions(watch.id);
+  const images = getCarImages(watch.id);
 
   return (
     <div className="form-page">
@@ -18,8 +18,10 @@ export default async function EditWatchPage({ params }: { params: Promise<{ id: 
       <WatchForm
         watch={watch}
         images={{
-          logo: versions.logo && imageUrl(watch.id, "logo", versions.logo),
-          photo: versions.photo && imageUrl(watch.id, "photo", versions.photo),
+          logo: images.logo?.url,
+          photo: images.photo?.url,
+          wheels: images.photo?.wheels,
+          facesRight: images.photo?.facesRight,
         }}
       />
       <hr />

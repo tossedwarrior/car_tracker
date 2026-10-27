@@ -44,8 +44,8 @@ describe("readImageUpload", () => {
 describe("saving and serving images", () => {
   it("keeps one logo and one photo per car, replacing on a new upload", async () => {
     const id = db.insert(watchlist).values({ make: "Ferrari", model: "Roma", yearMin: 2021, yearMax: 2024 }).returning().get().id;
-    saveImage(id, "logo", { contentType: "image/png", data: Buffer.from(PNG), fileName: "a.png" }, new Date("2026-10-27T10:00:00Z"));
-    saveImage(id, "logo", { contentType: "image/jpeg", data: Buffer.from(JPEG), fileName: "b.jpg" }, new Date("2026-10-27T11:00:00Z"));
+    saveImage(id, "logo", { contentType: "image/png", data: Buffer.from(PNG), fileName: "a.png", width: 8, height: 8 }, new Date("2026-10-27T10:00:00Z"));
+    saveImage(id, "logo", { contentType: "image/jpeg", data: Buffer.from(JPEG), fileName: "b.jpg", width: 8, height: 8 }, new Date("2026-10-27T11:00:00Z"));
 
     expect(getImage(id, "logo")).toMatchObject({ contentType: "image/jpeg", fileName: "b.jpg" });
     expect(imageVersions(id)).toEqual({ logo: "2026-10-27T11:00:00.000Z" });

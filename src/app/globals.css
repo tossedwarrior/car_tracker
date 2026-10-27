@@ -431,3 +431,187 @@ header.site nav a[aria-current="page"] { font-weight: 700; }
   .form-buttons { gap: 12px; }
   .form-buttons .pill-button { flex: 1 1 auto; padding: 14px 24px; font-size: 18px; }
 }
+
+/* ---------- Car drawn with turnable wheels ---------- */
+.car-sprite { position: relative; width: 100%; }
+.car-sprite-inner { position: relative; width: 100%; height: 100%; }
+.car-sprite img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
+.car-wheel {
+  position: absolute; aspect-ratio: 1; border-radius: 50%;
+  background-repeat: no-repeat; will-change: transform; transform: rotate(0deg);
+}
+.car-wheel.spin { animation: wheel-spin 1.4s linear infinite; }
+.car-wheel.spin.reverse { animation-direction: reverse; }
+@keyframes wheel-spin { to { transform: rotate(-360deg); } }
+
+/* ---------- Wheel marking tool (car form) ---------- */
+.wheel-marker { display: grid; gap: 12px; }
+.wheel-marker > p { margin: 0; }
+.wheel-marker-stage {
+  position: relative; touch-action: none; margin-top: 8px; border-radius: 24px;
+  background: repeating-conic-gradient(#f4f4f4 0 25%, #e9e9e9 0 50%) 0 0 / 20px 20px;
+}
+.wheel-ring {
+  position: absolute; aspect-ratio: 1; border-radius: 50%; cursor: grab;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px #000; background: rgb(255 255 255 / 0.08);
+}
+.wheel-ring:active { cursor: grabbing; }
+.wheel-ring-label {
+  position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
+  background: #000; color: #fff; font-size: 13px; padding: 3px 10px; border-radius: 100px; white-space: nowrap; pointer-events: none;
+}
+.wheel-ring-handle {
+  position: absolute; right: 7%; bottom: 7%; width: 18px; height: 18px; border-radius: 50%;
+  background: #000; border: 2px solid #fff; cursor: nwse-resize; transform: translate(50%, 50%);
+}
+.wheel-marker-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.pill-button.small { padding: 10px 20px; font-size: 16px; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: #000; }
+.text-link { background: none; border: 0; padding: 0; font: inherit; font-size: 16px; text-decoration: underline; cursor: pointer; color: inherit; }
+
+/* ---------- Home: expanded view (Figma 3:126) ---------- */
+:root { --header-h: 79px; }
+header.site .inner { min-height: var(--header-h); }
+main:has(> .showroom) { max-width: none; padding: 0; }
+:root:has(.showroom) { scroll-snap-type: y proximity; }
+
+.showroom {
+  --stage-h: max(560px, calc(100svh - var(--header-h)));
+  /* Where the tyres touch the ground, and the room needed above the car for the title. */
+  --ground-f: 0.577;
+  --top-room: calc(var(--stage-h) * 0.07 + 168px);
+  --car-w-max: min(49.5vw, 760px);
+  position: relative; height: calc(var(--slots) * var(--stage-h)); background: #eef2f3;
+}
+.showroom-snap { position: absolute; left: 0; width: 1px; height: var(--stage-h); top: calc(var(--slot) * var(--stage-h)); scroll-snap-align: start; }
+.showroom-snap:first-child { top: calc(-1 * var(--header-h)); }
+.showroom-stage {
+  position: sticky; top: 0; height: var(--stage-h); overflow: hidden;
+  background: linear-gradient(to bottom, #eef2f3 0%, #bfc9d0 49.35%, #eef2f3 49.35%, #eef2f3 100%);
+}
+.scene {
+  --car-w: min(var(--car-w-max), calc((var(--stage-h) * var(--ground-f) - var(--top-room)) / var(--aspect)));
+  position: absolute; inset: 0; pointer-events: none;
+}
+.scene-car {
+  position: absolute; left: 50%; bottom: calc(var(--stage-h) * (1 - var(--ground-f)));
+  width: var(--car-w); transform: translateX(-50%); will-change: transform;
+}
+.scene-logo {
+  position: absolute; left: 50%; width: calc(var(--car-w) * 1.13); transform: translateX(-50%); opacity: 0.05;
+  top: calc(var(--stage-h) * var(--ground-f) - var(--car-w) * var(--aspect) * 0.9 - var(--car-w) * 1.13 * var(--logo-aspect) / 2);
+}
+.scene-logo img { width: 100%; height: auto; }
+.scene-text { position: absolute; inset: 0; will-change: transform, opacity; }
+.scene-text a, .scene-text button { pointer-events: auto; }
+.scene-heading { position: absolute; left: 0; right: 0; top: calc(var(--stage-h) * 0.07); text-align: center; padding: 0 64px; }
+.scene-years { font-family: var(--font-serif), Georgia, serif; font-weight: 200; font-size: 32px; margin: 0 0 12px; }
+.scene-title { font-size: clamp(34px, 4vw, 60px); font-weight: 700; line-height: 1.02; margin: 0; letter-spacing: -0.01em; }
+.scene-no-photo { position: absolute; left: 0; right: 0; top: calc(var(--stage-h) * 0.38); text-align: center; font-size: 18px; color: var(--muted); }
+.scene-no-photo a { pointer-events: auto; }
+.scene-details {
+  position: absolute; left: 0; right: 0; top: calc(var(--stage-h) * var(--ground-f) + 44px);
+  display: flex; flex-direction: column; align-items: center; gap: 44px; padding: 0 64px;
+}
+
+.car-stats { display: grid; grid-template-columns: repeat(3, auto); gap: 0 96px; justify-content: center; text-align: center; }
+.car-stats p { margin: 0; }
+.car-stats > div { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.car-stat-label { font-family: var(--font-serif), Georgia, serif; font-size: 18px; }
+.car-stat-value { font-size: 32px; font-weight: 700; display: inline-flex; align-items: center; gap: 13px; white-space: nowrap; }
+.car-stat-sub { font-size: 16px; min-height: 19px; }
+.trend-arrow { width: 24px; height: 24px; }
+
+.showroom-switch { position: absolute; top: 22px; right: 30px; }
+.view-switch {
+  display: inline-flex; align-items: center; gap: 10px; padding: 6px 8px 6px 36px; border-radius: 37px;
+  background: rgb(255 255 255 / 0.6); font-size: 20px; font-weight: 500;
+}
+.view-switch button {
+  display: inline-flex; padding: 8px 24px; border: 0; border-radius: 37px; background: none; cursor: pointer;
+}
+.view-switch button[aria-pressed="true"] { background: #e1e1e1; }
+.view-switch img { width: 24px; height: 24px; }
+
+.showroom-dots {
+  position: absolute; right: 37px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 24px;
+}
+.showroom-dot {
+  width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: #8e9eab; cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.showroom-dot[aria-current="true"] { background: #000; box-shadow: 0 0 0 2px #fff; }
+.showroom-dot:focus-visible { outline: 2px solid #000; outline-offset: 4px; }
+
+/* ---------- Home: list view (Figma 9:173) ---------- */
+.car-list-switch { display: flex; justify-content: flex-end; margin: -2px 0 66px; }
+.car-list-switch .view-switch { background: #fff; }
+.car-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.car-row + .car-row { margin-top: 96px; }
+.car-row-text { display: flex; flex-direction: column; align-items: flex-start; }
+.car-row-text .scene-years { margin-bottom: 16px; }
+.car-row-title { font-size: clamp(34px, 4vw, 60px); font-weight: 700; line-height: 1.02; margin: 0 0 60px; letter-spacing: -0.01em; }
+.car-row-title a { text-decoration: none; }
+.car-row .car-stats { gap: 0 80px; justify-content: start; text-align: left; opacity: 0.8; margin-bottom: 60px; }
+.car-row .car-stats > div { align-items: flex-start; }
+.car-row-panel {
+  position: relative; display: block; aspect-ratio: 712 / 393; overflow: hidden;
+  background: linear-gradient(to bottom, #eef2f3, #8e9eab);
+}
+.car-row-logo { position: absolute; left: 50%; top: 9%; width: 82%; transform: translateX(-50%); opacity: 0.05; }
+.car-row-car { position: absolute; left: 50%; bottom: 18%; width: 78%; transform: translateX(-50%); }
+.car-row-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 16px; }
+
+/* ---------- Home: tablet and phone ---------- */
+@media (max-width: 1024px) {
+  .car-stats { gap: 0 48px; }
+  .car-row .car-stats { gap: 0 40px; }
+}
+@media (max-width: 900px) {
+  .car-row { grid-template-columns: 1fr; gap: 24px; }
+  .car-row-panel { order: -1; }
+  .car-row-title { margin-bottom: 32px; }
+  .car-row .car-stats { margin-bottom: 32px; }
+}
+@media (max-width: 700px) {
+  :root { --header-h: 60px; }
+  .showroom {
+    --ground-f: 0.5;
+    --top-room: calc(var(--stage-h) * 0.05 + 128px);
+    --car-w-max: 90vw;
+  }
+  .scene-heading { top: calc(var(--stage-h) * 0.05); padding: 0 40px; }
+  .scene-years { font-size: 22px; margin-bottom: 8px; }
+  .scene-details { top: calc(var(--stage-h) * var(--ground-f) + 32px); gap: 32px; padding: 0 16px; }
+  .car-stats { gap: 0 16px; }
+  .car-stats > div { gap: 8px; }
+  .car-stat-label { font-size: 15px; }
+  .car-stat-value { font-size: 20px; gap: 6px; }
+  .car-stat-sub { font-size: 13px; }
+  .trend-arrow { width: 18px; height: 18px; }
+  .showroom-switch { top: 12px; right: 12px; }
+  .view-switch { font-size: 15px; padding: 4px 4px 4px 16px; gap: 4px; }
+  .view-switch button { padding: 6px 14px; }
+  .view-switch img { width: 20px; height: 20px; }
+  .showroom-dots { right: 10px; gap: 14px; }
+  .showroom-dot { width: 10px; height: 10px; }
+  .car-list-switch { margin-bottom: 32px; }
+  .car-row + .car-row { margin-top: 56px; }
+  .car-row .car-stats { gap: 0 20px; }
+}
+/* The page-wide "first heading in a section" spacing doesn't apply on the home page. */
+.showroom .scene-title, .car-list .car-row-title { margin-top: 0; }
+
+/* Logos never wider than the screen. */
+.scene-logo { width: min(calc(var(--car-w) * 1.13), calc(100vw - 32px)); }
+@media (max-width: 700px) {
+  .showroom { --ground-f: 0.47; --car-w-max: 84vw; --top-room: calc(var(--stage-h) * 0.05 + 176px); }
+  /* Clear the View switch above. */
+  .scene-heading { top: calc(var(--stage-h) * 0.05 + 48px); }
+}
+@media (max-width: 700px) {
+  /* Phones: dots in the open sky above the car, clear of the text. */
+  .showroom-dots { top: calc(var(--stage-h) * 0.33); }
+}

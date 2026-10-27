@@ -49,6 +49,14 @@ change). A car missing from refreshes on 3 different days is marked gone.
 Each car fetches up to 5 pages of 20; each source stops before its free
 monthly limit. Refreshes and API call counts are on the Settings page.
 
+## Home page
+
+An expanded view (one car at a time; scrolling drives the current car out to
+the left and the next in from the right, wheels turning, with dots on the right
+to jump between cars) and a list view, switched with "View" and remembered.
+Each car needs a brand logo and a side-on car photo, with its wheels marked in
+the car form: see [docs/CAR_PHOTOS.md](docs/CAR_PHOTOS.md).
+
 ## Market, alerts and currency
 
 - **Market trend** (a tab on each car), filterable by variant (Standard, Spider,
