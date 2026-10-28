@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { safeNext } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Sign in · Car Price Tracker" };
+export const metadata: Metadata = { title: "Sign in · Poster Wall" };
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage({
@@ -14,7 +15,9 @@ export default async function LoginPage({
   return (
     <div className="login">
       <h1>Sign in</h1>
-      <p className="muted">This is a private car price tracker.</p>
+      <p className="muted">
+        This is a private car price tracker. <Link href="/about">About the project</Link>
+      </p>
       <form method="post" action="/api/login" className="form">
         <input type="hidden" name="next" value={safeNext(next)} />
         <label className="field">

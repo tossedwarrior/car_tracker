@@ -43,6 +43,9 @@ export function NavLinks({ unseenAlerts }: { unseenAlerts: number }) {
         {unseenAlerts > 0 && <span className="menu-dot" aria-hidden="true" />}
       </button>
       <nav id="main-nav" aria-label="Main" className={open ? "open" : undefined}>
+        <Link href="/about" aria-current={current("/about")}>
+          About
+        </Link>
         <Link href="/alerts" aria-current={current("/alerts")}>
           Alerts
           {unseenAlerts > 0 && (

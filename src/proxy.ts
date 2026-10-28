@@ -9,6 +9,11 @@ export async function proxy(request: NextRequest) {
 
   const { pathname, search } = request.nextUrl;
   if (pathname === "/login" || pathname === "/api/login") return NextResponse.next();
+  // The About page is public, for visitors from the portfolio; it only shows
+  // the link to the source code to people who are signed in.
+  if (pathname === "/about" && (request.method === "GET" || request.method === "HEAD")) {
+    return NextResponse.next();
+  }
 
   // Pages: show the sign-in form at the same address, then come back here.
   if (request.method === "GET" || request.method === "HEAD") {

@@ -762,3 +762,30 @@ header.site { position: relative; z-index: 20; }
 .backup-restore { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; }
 .backup-restore .field { flex: 0 1 360px; }
 .backup-restore input[type="file"] { border: 0; padding: 8px 0; font: inherit; font-size: 16px; }
+
+/* About: a label column on the left, the text on the right, 1px rules between. */
+.about { max-width: 1120px; }
+.about-head { padding: 24px 0 56px; }
+.about-eyebrow { font-family: var(--font-serif), Georgia, serif; font-weight: 200; font-size: 32px; margin: 0 0 12px; }
+.about-head h1 { margin: 0 0 32px; }
+.about-lead { font-size: clamp(20px, 2.2vw, 28px); line-height: 1.35; max-width: 34em; margin: 0; }
+.about-row {
+  display: grid; grid-template-columns: minmax(180px, 1fr) 2.4fr; gap: 16px 48px;
+  border-top: 1px solid var(--border); padding: 32px 0;
+}
+.about-row h2, section:first-of-type.about-row h2 {
+  font-family: var(--font-serif), Georgia, serif; font-weight: 400; font-size: 24px; margin: 0;
+}
+.about-row p { font-size: 18px; line-height: 1.5; margin: 0; max-width: 40em; }
+.about-list { margin: 0; display: grid; gap: 20px; }
+.about-list > div { display: grid; grid-template-columns: minmax(160px, 1fr) 2fr; gap: 4px 32px; }
+.about-list dt { font-weight: 700; font-size: 18px; }
+.about-list dd { margin: 0; font-size: 18px; line-height: 1.5; color: var(--muted); }
+.about-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 18px; }
+.about a { text-underline-offset: 3px; }
+@media (max-width: 760px) {
+  .about-row, .about-list > div { grid-template-columns: 1fr; }
+  .about-row { gap: 16px; padding: 28px 0; }
+  .about-head { padding: 8px 0 40px; }
+  .about-eyebrow { font-size: 24px; }
+}
