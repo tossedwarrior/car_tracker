@@ -825,7 +825,12 @@ header.site { position: relative; z-index: 20; }
   .view-switch { font-size: 14px; padding: 5px 10px 5px 20px; gap: 8px; }
   .view-switch button { padding: 6px 13px; }
   .view-switch img { width: 14px; height: 14px; }
-  .showroom-dots { gap: 20px; bottom: calc(var(--stage-h) * 14 / 773); }
+  /* The car dots: a column on the right, as on desktop, lined up under the
+     menu icon and clear of the centered car and stats. */
+  .showroom-dots {
+    top: 50%; bottom: auto; left: auto; right: 36px; transform: translateY(-50%);
+    flex-direction: column; gap: 20px;
+  }
   .showroom-dot { width: 14px; height: 14px; }
 
   /* Short screens: what the shift takes from the bottom comes out of the
