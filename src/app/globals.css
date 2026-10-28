@@ -499,7 +499,13 @@ body:has(.showroom) header.site { position: sticky; top: 0; z-index: 20; }
 .scene-text { z-index: 4; }
 .showroom-switch, .showroom-dots { z-index: 5; }
 .scene {
-  --car-w: min(var(--car-w-max), calc((var(--stage-h) * var(--ground-f) - var(--top-room)) / var(--aspect)));
+  /* The car fills the room between the heading and the ground: --top-room
+     for a one-line name, or below the measured heading (--heading-room, set
+     by CarShowroom) when a long name wraps. */
+  --car-w: min(
+    var(--car-w-max),
+    calc((var(--stage-h) * var(--ground-f) - max(var(--top-room), var(--heading-room, 0px))) / var(--aspect))
+  );
   position: absolute; inset: 0; pointer-events: none;
 }
 .scene-car {

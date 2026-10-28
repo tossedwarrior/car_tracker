@@ -21,16 +21,23 @@ function scrollStart(section: HTMLElement, stage: HTMLElement) {
 }
 
 interface Parts {
+  scene: HTMLDivElement | null;
+  heading: HTMLDivElement | null;
   car: HTMLDivElement | null;
   wheels: (HTMLDivElement | null)[];
   text: HTMLDivElement | null;
   logo: HTMLDivElement | null;
 }
 
+/** Space kept between the bottom of a car's name and the top of the car. */
+const HEADING_GAP = 16;
+
 export function CarShowroom({ cars }: { cars: HomeCar[] }) {
   const section = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
-  const parts = useRef<Parts[]>(cars.map(() => ({ car: null, wheels: [], text: null, logo: null })));
+  const parts = useRef<Parts[]>(
+    cars.map(() => ({ scene: null, heading: null, car: null, wheels: [], text: null, logo: null })),
+  );
   const [active, setActive] = useState(0);
   const activeRef = useRef(0);
 
@@ -91,25 +98,46 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
     }
   }, [cars]);
 
+  // A long name wraps onto more lines, so each scene measures where its
+  // heading ends and the car is sized to fit below it (--heading-room in
+  // globals.css). Measured on layout changes, not on every scroll frame.
+  const measureHeadings = useCallback(() => {
+    for (const p of parts.current) {
+      if (!p.scene || !p.heading) continue;
+      const bottom = p.heading.offsetTop + p.heading.offsetHeight;
+      p.scene.style.setProperty("--heading-room", `${bottom + HEADING_GAP}px`);
+    }
+  }, []);
+
   useEffect(() => {
     let frame = 0;
     const schedule = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(update);
     };
+    const relayout = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        measureHeadings();
+        update();
+      });
+    };
+    measureHeadings();
     update();
     window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    // Images change sizes as they load.
-    const sizes = new ResizeObserver(schedule);
+    window.addEventListener("resize", relayout);
+    // Images change sizes as they load, and names re-wrap when the stage resizes.
+    const sizes = new ResizeObserver(relayout);
     if (stage.current) sizes.observe(stage.current);
+    // The web fonts change how names wrap once they arrive.
+    document.fonts?.ready.then(relayout);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", relayout);
       sizes.disconnect();
     };
-  }, [update]);
+  }, [update, measureHeadings]);
 
   const goTo = (i: number) => {
     const el = section.current;
@@ -141,6 +169,7 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
           return (
             <div
               key={car.id}
+              ref={(el) => void (parts.current[i].scene = el)}
               className="scene"
               style={{ "--aspect": aspect, "--logo-aspect": logoAspect } as React.CSSProperties}
             >
@@ -165,7 +194,7 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
               ) : null}
 
               <div ref={(el) => void (parts.current[i].text = el)} className="scene-text">
-                <div className="scene-heading">
+                <div ref={(el) => void (parts.current[i].heading = el)} className="scene-heading">
                   <p className="scene-years">{car.years}</p>
                   <h2 className="scene-title">{car.title}</h2>
                 </div>
