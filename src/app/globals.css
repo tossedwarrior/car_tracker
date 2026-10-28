@@ -763,29 +763,30 @@ header.site { position: relative; z-index: 20; }
 .backup-restore .field { flex: 0 1 360px; }
 .backup-restore input[type="file"] { border: 0; padding: 8px 0; font: inherit; font-size: 16px; }
 
-/* About: a label column on the left, the text on the right, 1px rules between. */
-.about { max-width: 1120px; }
-.about-head { padding: 24px 0 56px; }
-.about-eyebrow { font-family: var(--font-serif), Georgia, serif; font-weight: 200; font-size: 32px; margin: 0 0 12px; }
-.about-head h1 { margin: 0 0 32px; }
-.about-lead { font-size: clamp(20px, 2.2vw, 28px); line-height: 1.35; max-width: 34em; margin: 0; }
-.about-row {
-  display: grid; grid-template-columns: minmax(180px, 1fr) 2.4fr; gap: 16px 48px;
-  border-top: 1px solid var(--border); padding: 32px 0;
+/* About (Figma 46:2): one centered 712px column. Body text is the site's
+   18px; section headings are the serif at 32px (24px on phones). */
+.about { max-width: 712px; margin: 0 auto; }
+.about h1 { margin: 24px 0 48px; }
+.about p { margin: 0; }
+.about p + p { margin-top: 1.2em; }
+.about section { margin-top: 75px; }
+.about h2, section:first-of-type.about h2, .about section:first-of-type h2 {
+  font-family: var(--font-serif), Georgia, serif; font-weight: 400; font-size: 32px; line-height: 1.15; margin: 0 0 24px;
 }
-.about-row h2, section:first-of-type.about-row h2 {
-  font-family: var(--font-serif), Georgia, serif; font-weight: 400; font-size: 24px; margin: 0;
-}
-.about-row p { font-size: 18px; line-height: 1.5; margin: 0; max-width: 40em; }
-.about-list { margin: 0; display: grid; gap: 20px; }
-.about-list > div { display: grid; grid-template-columns: minmax(160px, 1fr) 2fr; gap: 4px 32px; }
-.about-list dt { font-weight: 700; font-size: 18px; }
-.about-list dd { margin: 0; font-size: 18px; line-height: 1.5; color: var(--muted); }
-.about-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 18px; }
-.about a { text-underline-offset: 3px; }
-@media (max-width: 760px) {
-  .about-row, .about-list > div { grid-template-columns: 1fr; }
-  .about-row { gap: 16px; padding: 28px 0; }
-  .about-head { padding: 8px 0 40px; }
-  .about-eyebrow { font-size: 24px; }
+.about ul { margin: 0; padding-left: 27px; }
+.about li::marker { font-size: 0.8em; }
+.about a { font-weight: 700; text-underline-offset: 3px; }
+.about-sources { margin: 0; display: grid; gap: 1.2em; }
+/* Every row is at least two lines tall, so sources sit at an even rhythm. */
+.about-sources > div { display: grid; grid-template-columns: 221px 1fr; gap: 4px 24px; min-height: 2.4em; }
+.about-sources dd { margin: 0; }
+.about ul.about-links { list-style: none; padding: 0; display: grid; gap: 2.4em; }
+@media (max-width: 700px) {
+  .about { font-size: 16px; }
+  .about h1 { margin: 8px 0 32px; }
+  .about section { margin-top: 48px; }
+  .about h2, .about section:first-of-type h2 { font-size: 24px; margin-bottom: 16px; }
+  .about ul { padding-left: 22px; }
+  .about-sources > div { grid-template-columns: 1fr; min-height: 0; }
+  .about ul.about-links { gap: 20px; }
 }
