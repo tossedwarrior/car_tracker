@@ -8,9 +8,11 @@ next-env.d.ts
 .env.*
 !.env.example
 
-# Local SQLite database
+# Local data: the old SQLite database and backup files (they hold everything)
 data/*.db
 data/*.db-*
+data/*.json.gz
+*.json.gz
 
 # macOS
 .DS_Store

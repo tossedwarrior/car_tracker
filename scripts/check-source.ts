@@ -9,6 +9,7 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { closeDb } from "@/db";
 import { getSource, liveContext } from "@/sources";
 import { getUsage } from "@/sources/usage";
 
@@ -55,7 +56,7 @@ if (values.save) {
   };
 }
 
-const before = getUsage(source.id);
+const before = await getUsage(source.id);
 if (source.kind === "listings") {
   const result = await source.search(query, ctx, { maxCalls: Number(values.pages) });
   console.table(
@@ -89,7 +90,7 @@ if (source.kind === "listings") {
     `${result.results.length} sold results${result.matchedModel ? ` (model "${result.matchedModel}")` : ""}, ${result.calls} metered call(s).`,
   );
 }
-console.log(`${source.label}: ${before} → ${getUsage(source.id)} of ${source.monthlyCallLimit} calls this month.`);
+console.log(`${source.label}: ${before} → ${await getUsage(source.id)} of ${source.monthlyCallLimit} calls this month.`);
 
 if (values.save) {
   const date = new Date().toISOString().slice(0, 10);
@@ -97,3 +98,4 @@ if (values.save) {
   fs.writeFileSync(file, JSON.stringify(savedPages.length === 1 ? savedPages[0] : savedPages, null, 2) + "\n");
   console.log(`Saved raw response to ${file}`);
 }
+await closeDb();

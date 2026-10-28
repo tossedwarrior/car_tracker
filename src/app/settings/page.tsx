@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { checkRuns, watchlist } from "@/db/schema";
+import { BackupRestore } from "@/components/BackupRestore";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { callsPerWatch } from "@/jobs/budget";
 import { getDisplayCurrency } from "@/lib/display-currency";
@@ -16,11 +17,13 @@ export default async function SettingsPage() {
     month: "long",
     year: "numeric",
   });
-  const watchCount = db.select().from(watchlist).where(eq(watchlist.active, true)).all().length;
-  const runs = db.select().from(checkRuns).orderBy(desc(checkRuns.id)).limit(10).all();
+  const watchCount = (await db.select({ id: watchlist.id }).from(watchlist).where(eq(watchlist.active, true)))
+    .length;
+  const runs = await db.select().from(checkRuns).orderBy(desc(checkRuns.id)).limit(10);
+  const usage = await Promise.all(allSources.map((s) => getUsage(s.id)));
 
-  const sources = allSources.map((s) => {
-    const used = getUsage(s.id);
+  const sources = allSources.map((s, i) => {
+    const used = usage[i];
     const perCar =
       s.kind === "listings"
         ? callsPerWatch({ ...s.callsPerWatch, limit: s.monthlyCallLimit, used, watchCount })
@@ -88,6 +91,16 @@ export default async function SettingsPage() {
           Montreal, Vancouver and Calgary (one call each, more if a city has over 50); Old Cars Data
           returns the latest 20 sold auctions per update on the free plan.
         </p>
+      </section>
+
+      <section>
+        <h2>Backup &amp; restore</h2>
+        <p className="muted small">
+          A backup is one file with everything: your cars, listings, price history, auction results,
+          photos and logos. Use it to keep a copy, or to move your data between this site and another
+          copy of the app (like the one on your Mac).
+        </p>
+        <BackupRestore />
       </section>
 
       <section>

@@ -101,7 +101,7 @@ export function normalize(raw: AutoDevListing): NormalizedListing | null {
 }
 
 async function fetchPage(url: string, ctx: SourceContext): Promise<AutoDevResponse> {
-  ctx.beforeCall();
+  await ctx.beforeCall();
   const res = await ctx.fetch(url, {
     headers: {
       Authorization: `Bearer ${ctx.apiKey}`,

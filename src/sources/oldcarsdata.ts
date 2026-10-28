@@ -102,7 +102,7 @@ export function normalize(raw: OcdAuction): NormalizedSoldResult | null {
 }
 
 async function getJson<T>(url: string, ctx: SourceContext, metered: boolean): Promise<T> {
-  if (metered) ctx.beforeCall();
+  if (metered) await ctx.beforeCall();
   const res = await ctx.fetch(url, {
     headers: { Authorization: `Bearer ${ctx.apiKey}`, Accept: "application/json" },
   });

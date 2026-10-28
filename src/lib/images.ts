@@ -52,29 +52,29 @@ export async function readImageUpload(
 }
 
 /** Save an image. A new car photo forgets the old one's wheel positions. */
-export function saveImage(watchId: number, kind: ImageKind, image: ImageUpload, now = new Date()) {
+export async function saveImage(watchId: number, kind: ImageKind, image: ImageUpload, now = new Date()) {
   const values = { ...image, updatedAt: now.toISOString(), ...(kind === "photo" ? { wheels: null } : {}) };
-  db.insert(watchImages)
+  await db
+    .insert(watchImages)
     .values({ watchId, kind, ...values })
-    .onConflictDoUpdate({ target: [watchImages.watchId, watchImages.kind], set: values })
-    .run();
+    .onDuplicateKeyUpdate({ set: values });
 }
 
-export function getImage(watchId: number, kind: ImageKind) {
-  return db
+export async function getImage(watchId: number, kind: ImageKind) {
+  const [row] = await db
     .select()
     .from(watchImages)
     .where(and(eq(watchImages.watchId, watchId), eq(watchImages.kind, kind)))
-    .get();
+    .limit(1);
+  return row;
 }
 
 /** Which images a car has, and a version for each so browsers refetch after a change. */
-export function imageVersions(watchId: number): Partial<Record<ImageKind, string>> {
-  const rows = db
+export async function imageVersions(watchId: number): Promise<Partial<Record<ImageKind, string>>> {
+  const rows = await db
     .select({ kind: watchImages.kind, updatedAt: watchImages.updatedAt })
     .from(watchImages)
-    .where(eq(watchImages.watchId, watchId))
-    .all();
+    .where(eq(watchImages.watchId, watchId));
   return Object.fromEntries(rows.map((r) => [r.kind, r.updatedAt]));
 }
 
@@ -82,14 +82,14 @@ export const imageUrl = (watchId: number, kind: ImageKind, version: string) =>
   `/api/watch/${watchId}/image/${kind}?v=${encodeURIComponent(version)}`;
 
 /** Where the car photo's wheels are, and which way the car faces. */
-export function saveCarPhotoSettings(
+export async function saveCarPhotoSettings(
   watchId: number,
   { wheels, facesRight }: { wheels: WheelSpec | null; facesRight: boolean },
 ) {
-  db.update(watchImages)
+  await db
+    .update(watchImages)
     .set({ wheels: wheels ? JSON.stringify(wheels) : null, facesRight })
-    .where(and(eq(watchImages.watchId, watchId), eq(watchImages.kind, "photo")))
-    .run();
+    .where(and(eq(watchImages.watchId, watchId), eq(watchImages.kind, "photo")));
 }
 
 export interface ShownImage {
@@ -104,8 +104,8 @@ export interface CarImages {
 }
 
 /** A car's logo and photo, ready to show: URLs, sizes, wheels. */
-export function getCarImages(watchId: number): CarImages {
-  const rows = db
+export async function getCarImages(watchId: number): Promise<CarImages> {
+  const rows = await db
     .select({
       kind: watchImages.kind,
       updatedAt: watchImages.updatedAt,
@@ -115,8 +115,7 @@ export function getCarImages(watchId: number): CarImages {
       facesRight: watchImages.facesRight,
     })
     .from(watchImages)
-    .where(eq(watchImages.watchId, watchId))
-    .all();
+    .where(eq(watchImages.watchId, watchId));
   const out: CarImages = {};
   for (const r of rows) {
     const shown = { url: imageUrl(watchId, r.kind, r.updatedAt), width: r.width, height: r.height };

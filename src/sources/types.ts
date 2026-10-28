@@ -41,7 +41,7 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 export interface SourceContext {
   fetch: FetchLike;
   /** Called before every real API call. Throws if the source is over budget. */
-  beforeCall: () => void;
+  beforeCall: () => void | Promise<void>;
   apiKey: string;
 }
 

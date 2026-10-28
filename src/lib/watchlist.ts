@@ -68,21 +68,23 @@ export function parseWatchForm(
   };
 }
 
-export function getWatch(id: number): Watch | undefined {
-  return db.select().from(watchlist).where(eq(watchlist.id, id)).get();
+export async function getWatch(id: number): Promise<Watch | undefined> {
+  const [row] = await db.select().from(watchlist).where(eq(watchlist.id, id)).limit(1);
+  return row;
 }
 
-export function createWatch(values: WatchInput): number {
-  return db.insert(watchlist).values(values).returning({ id: watchlist.id }).get().id;
+export async function createWatch(values: WatchInput): Promise<number> {
+  const [row] = await db.insert(watchlist).values(values).$returningId();
+  return row.id;
 }
 
-export function updateWatch(id: number, values: WatchInput) {
-  db.update(watchlist).set(values).where(eq(watchlist.id, id)).run();
+export async function updateWatch(id: number, values: WatchInput) {
+  await db.update(watchlist).set(values).where(eq(watchlist.id, id));
 }
 
 /** Deletes the watch and, through the foreign keys, its listings and history. */
-export function deleteWatch(id: number) {
-  db.delete(watchlist).where(eq(watchlist.id, id)).run();
+export async function deleteWatch(id: number) {
+  await db.delete(watchlist).where(eq(watchlist.id, id));
 }
 
 export interface WatchSummary extends Watch {
@@ -91,15 +93,14 @@ export interface WatchSummary extends Watch {
   lowest: Array<{ currency: Currency; price: number }>;
 }
 
-export function listWatches(): WatchSummary[] {
-  const watches = db.select().from(watchlist).orderBy(asc(watchlist.make), asc(watchlist.model)).all();
-  const counts = db
+export async function listWatches(): Promise<WatchSummary[]> {
+  const watches = await db.select().from(watchlist).orderBy(asc(watchlist.make), asc(watchlist.model));
+  const counts = await db
     .select({ watchId: listings.watchId, n: sql<number>`count(*)` })
     .from(listings)
     .where(eq(listings.status, "active"))
-    .groupBy(listings.watchId)
-    .all();
-  const lows = db
+    .groupBy(listings.watchId);
+  const lows = await db
     .select({
       watchId: listings.watchId,
       currency: listings.currency,
@@ -107,15 +108,14 @@ export function listWatches(): WatchSummary[] {
     })
     .from(listings)
     .where(and(eq(listings.status, "active"), sql`${listings.price} is not null`))
-    .groupBy(listings.watchId, listings.currency)
-    .all();
+    .groupBy(listings.watchId, listings.currency);
 
   return watches.map((w) => ({
     ...w,
-    activeCount: counts.find((c) => c.watchId === w.id)?.n ?? 0,
+    activeCount: Number(counts.find((c) => c.watchId === w.id)?.n ?? 0),
     lowest: lows
       .filter((l) => l.watchId === w.id)
-      .map(({ currency, price }) => ({ currency, price })),
+      .map(({ currency, price }) => ({ currency, price: Number(price) })),
   }));
 }
 
@@ -136,7 +136,7 @@ export type ListingSort = keyof typeof listingSorts;
 export function getListings(
   watchId: number,
   { sort = "price", includeGone = false }: { sort?: ListingSort; includeGone?: boolean } = {},
-): Listing[] {
+): Promise<Listing[]> {
   return db
     .select()
     .from(listings)
@@ -145,8 +145,7 @@ export function getListings(
         ? eq(listings.watchId, watchId)
         : and(eq(listings.watchId, watchId), eq(listings.status, "active")),
     )
-    .orderBy(...listingSorts[sort].order)
-    .all();
+    .orderBy(...listingSorts[sort].order);
 }
 
 /**
@@ -167,12 +166,10 @@ export function sortByPrice<T extends { price: number | null; currency: string }
   });
 }
 
-export function countGone(watchId: number): number {
-  return (
-    db
-      .select({ n: sql<number>`count(*)` })
-      .from(listings)
-      .where(and(eq(listings.watchId, watchId), eq(listings.status, "gone")))
-      .get()?.n ?? 0
-  );
+export async function countGone(watchId: number): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(listings)
+    .where(and(eq(listings.watchId, watchId), eq(listings.status, "gone")));
+  return Number(row?.n ?? 0);
 }

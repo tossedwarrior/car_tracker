@@ -756,3 +756,9 @@ header.site { position: relative; z-index: 20; }
 @media (max-width: 700px) {
   .tabs { margin-right: calc(-1 * var(--gutter)); }
 }
+
+/* Settings: Backup & restore */
+.backup { display: grid; gap: 24px; max-width: 720px; }
+.backup-restore { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; }
+.backup-restore .field { flex: 0 1 360px; }
+.backup-restore input[type="file"] { border: 0; padding: 8px 0; font: inherit; font-size: 16px; }

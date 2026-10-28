@@ -1,4 +1,4 @@
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { listings, type Currency } from "@/db/schema";
 import { getMarketHistory, type TrendLabel } from "@/jobs/market";
@@ -23,28 +23,29 @@ export interface HomeCar {
 }
 
 /** Everything the home page shows for each watched car, in watchlist order. */
-export function getHomeCars(rates: Rates, display: Currency, now = new Date()): HomeCar[] {
+export async function getHomeCars(rates: Rates, display: Currency, now = new Date()): Promise<HomeCar[]> {
   const since = new Date(now.getTime() - NEW_DAYS * 86_400_000).toISOString().slice(0, 10);
-  return listWatches().map((w) => {
-    const newListings = db
-      .select({ id: listings.id })
+  const cars: HomeCar[] = [];
+  for (const w of await listWatches()) {
+    const [{ n: newListings }] = await db
+      .select({ n: sql<number>`count(*)` })
       .from(listings)
-      .where(and(eq(listings.watchId, w.id), eq(listings.status, "active"), gte(listings.firstSeen, since)))
-      .all().length;
+      .where(and(eq(listings.watchId, w.id), eq(listings.status, "active"), gte(listings.firstSeen, since)));
     const lowest =
       w.lowest
         .map((l) => showMoney(rates, display, l.price, l.currency))
         .sort((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity))[0] ?? null;
-    const { trend } = getMarketHistory(w, rates, now);
-    return {
+    const { trend } = await getMarketHistory(w, rates, now);
+    cars.push({
       id: w.id,
       title: watchTitle(w),
       years: formatYears(w.yearMin, w.yearMax).replace("–", " - "),
       forSale: w.activeCount,
-      newListings,
+      newListings: Number(newListings),
       lowest,
       trend: trend.label && trend.change != null ? { label: trend.label, change: trend.change } : null,
-      images: getCarImages(w.id),
-    };
-  });
+      images: await getCarImages(w.id),
+    });
+  }
+  return cars;
 }

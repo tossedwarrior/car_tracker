@@ -4,12 +4,13 @@ Personal app that tracks asking and sold prices for watched exotics. See [SPEC.m
 
 ## Setup
 
-Requires Node 22+.
+Requires Node 22+ and MySQL 8 (see [Database](#database)).
 
 ```bash
 npm install
-cp .env.example .env   # then add API keys
-npm run db:migrate     # creates data/tracker.db
+cp .env.example .env   # then add API keys and the MySQL password
+npm run mysql:start    # the Mac's own MySQL server
+npm run db:migrate     # creates the tables
 npm run db:seed        # optional: example Ferrari 458 watch + saved listings, no API calls
 npm run dev            # http://localhost:3000
 ```
@@ -84,12 +85,34 @@ the car form: see [docs/CAR_PHOTOS.md](docs/CAR_PHOTOS.md).
 
 ## Database
 
-SQLite via Drizzle ORM. Schema lives in `src/db/schema.ts`. After changing it:
+MySQL via Drizzle ORM. Schema lives in `src/db/schema.ts`. After changing it:
 
 ```bash
 npm run db:generate -- --name <change>
 npm run db:migrate
 ```
+
+The live site uses the MySQL database GoDaddy gives the app; this Mac runs its
+own. They're separate, so data doesn't sync between them: use **Settings →
+Backup & restore** (one file with everything, photos included) to copy it
+either way.
+
+**The Mac's MySQL** is the official macOS build (8.0.35, the last one for Intel
+Macs on macOS 13), unpacked into `~/.local/mysql`, with its data in
+`~/.local/mysql-data` and settings in `~/.local/mysql.cnf`. It listens only on
+this Mac (127.0.0.1:3306) and runs only when started:
+
+```bash
+npm run mysql:start    # also: mysql:stop, mysql:status
+```
+
+The app connects as user `tracker` (password in `.env`), to database `tracker`;
+tests create and drop their own `tracker_test_*` databases.
+
+**Before MySQL** (until October 2026) the app used SQLite (`data/tracker.db`).
+`npm run backup:from-sqlite` turns that file into a backup file in `data/`, to
+restore with `npm run backup:restore -- <file>` or on the live site's Settings
+page.
 
 ## Hosting (GoDaddy, or cPanel "Setup Node.js App")
 
@@ -101,8 +124,14 @@ base path setting blank or `/`.
    tables on start, then serves the built app. Plain `next start` skips that.
 2. **Environment variables** (set in cPanel, never committed):
    - `AUTO_DEV_API_KEY`, `MARKETCHECK_API_KEY`, `OLD_CARS_DATA_API_KEY`
-   - `DATABASE_PATH`: an absolute path outside `public_html`, e.g.
-     `/home/<cpanel-user>/car_tracker_data/tracker.db`
+   - The database: GoDaddy gives each published app a MySQL database and
+     passes its details in variables. The app reads `DATABASE_URL`
+     (`mysql://user:password@host:3306/database`) or separate variables:
+     `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`,
+     `MYSQL_PASSWORD` (also `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` and
+     similar spellings; see `scripts/db-config.cjs`). `MYSQL_SSL=true` if the
+     host requires encrypted connections. Don't keep data in files on the
+     server: GoDaddy can reset its file system on restarts and deploys.
    - `APP_PASSWORD`: shows a sign-in page until it's entered; a cookie keeps
      that browser signed in for 30 days. Signed-out visitors get the sign-in
      page with status 200, so host health checks pass. Leave it unset only if
@@ -113,5 +142,5 @@ base path setting blank or `/`.
    so a host that ships only the code, or leaves an older build behind, still
    starts the right version. The first start after a change takes a minute or
    two. On cPanel you can still Run NPM Install and build ahead of time.
-4. To keep existing data, upload `data/tracker.db` from this Mac to
-   `DATABASE_PATH` while the app is stopped.
+4. To copy data in, sign in and use **Settings → Backup & restore** with a
+   backup file from another copy of the app.

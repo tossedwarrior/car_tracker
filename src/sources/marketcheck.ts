@@ -108,7 +108,7 @@ export function normalize(raw: MarketCheckListing): NormalizedListing | null {
 }
 
 async function fetchPage(url: string, ctx: SourceContext): Promise<MarketCheckResponse> {
-  ctx.beforeCall();
+  await ctx.beforeCall();
   const res = await ctx.fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) {
     // Never echo the URL: it carries the API key.

@@ -1,5 +1,5 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, ignoreDuplicate, wasInserted } from "@/db";
 import { alertsSent, listings, priceSnapshots, watchlist } from "@/db/schema";
 import type { Rates } from "@/lib/fx";
 import { isUnderTarget } from "@/lib/money";
@@ -24,7 +24,7 @@ export interface AlertCounts {
  * alerts_sent's unique (listing, type, price) keeps each alert to one row,
  * so running this twice adds nothing.
  */
-export function recordAlerts({
+export async function recordAlerts({
   watchId,
   source,
   date,
@@ -38,49 +38,47 @@ export function recordAlerts({
   rates: Rates;
   newListingIds: number[];
   firstSearch: boolean;
-}): AlertCounts {
+}): Promise<AlertCounts> {
   const counts: AlertCounts = { new_listing: 0, price_drop: 0, under_target: 0 };
-  const watch = db.select().from(watchlist).where(eq(watchlist.id, watchId)).get();
+  const [watch] = await db.select().from(watchlist).where(eq(watchlist.id, watchId)).limit(1);
   if (!watch) return counts;
 
-  const rows = db
+  const rows = await db
     .select()
     .from(listings)
-    .where(and(eq(listings.watchId, watchId), eq(listings.source, source), eq(listings.status, "active")))
-    .all();
+    .where(and(eq(listings.watchId, watchId), eq(listings.source, source), eq(listings.status, "active")));
 
-  const add = (listingId: number, type: AlertType, price: number | null) => {
-    const inserted = db
+  const add = async (listingId: number, type: AlertType, price: number | null) => {
+    const result = await db
       .insert(alertsSent)
       .values({ listingId, type, price: price ?? 0, date })
-      .onConflictDoNothing()
-      .returning({ id: alertsSent.id })
-      .get();
-    if (inserted) counts[type]++;
+      .onDuplicateKeyUpdate(ignoreDuplicate);
+    if (wasInserted(result)) counts[type]++;
   };
-  const alreadyAlerted = (listingId: number, type: AlertType) =>
-    !!db
-      .select({ id: alertsSent.id })
-      .from(alertsSent)
-      .where(and(eq(alertsSent.listingId, listingId), eq(alertsSent.type, type)))
-      .get();
+  const alreadyAlerted = async (listingId: number, type: AlertType) =>
+    (
+      await db
+        .select({ id: alertsSent.id })
+        .from(alertsSent)
+        .where(and(eq(alertsSent.listingId, listingId), eq(alertsSent.type, type)))
+        .limit(1)
+    ).length > 0;
 
   for (const l of rows) {
-    if (!firstSearch && newListingIds.includes(l.id)) add(l.id, "new_listing", l.price);
+    if (!firstSearch && newListingIds.includes(l.id)) await add(l.id, "new_listing", l.price);
 
-    const [latest, previous] = db
+    const [latest, previous] = await db
       .select()
       .from(priceSnapshots)
       .where(eq(priceSnapshots.listingId, l.id))
       .orderBy(desc(priceSnapshots.date), desc(priceSnapshots.id))
-      .limit(2)
-      .all();
+      .limit(2);
     if (latest?.date === date && previous && latest.price < previous.price) {
-      add(l.id, "price_drop", latest.price);
+      await add(l.id, "price_drop", latest.price);
     }
 
-    if (isUnderTarget(rates, l, watch) && !alreadyAlerted(l.id, "under_target")) {
-      add(l.id, "under_target", l.price);
+    if (isUnderTarget(rates, l, watch) && !(await alreadyAlerted(l.id, "under_target"))) {
+      await add(l.id, "under_target", l.price);
     }
   }
   return counts;
@@ -98,21 +96,20 @@ export interface AlertRow {
   watch: { id: number; make: string; model: string; trim: string | null };
 }
 
-export function getAlerts(limit = 200): AlertRow[] {
-  const rows = db
+export async function getAlerts(limit = 200): Promise<AlertRow[]> {
+  const rows = await db
     .select({ alert: alertsSent, listing: listings, watch: watchlist })
     .from(alertsSent)
     .innerJoin(listings, eq(alertsSent.listingId, listings.id))
     .innerJoin(watchlist, eq(listings.watchId, watchlist.id))
     .orderBy(desc(alertsSent.date), desc(alertsSent.id))
-    .limit(limit)
-    .all();
+    .limit(limit);
 
-  return rows.map(({ alert, listing, watch }) => {
+  const out: AlertRow[] = [];
+  for (const { alert, listing, watch } of rows) {
     let previousPrice: number | null = null;
     if (alert.type === "price_drop") {
-      previousPrice =
-        db
+      const [before] = await db
           .select({ price: priceSnapshots.price })
           .from(priceSnapshots)
           .where(
@@ -122,9 +119,10 @@ export function getAlerts(limit = 200): AlertRow[] {
             ),
           )
           .orderBy(desc(priceSnapshots.date), desc(priceSnapshots.id))
-          .get()?.price ?? null;
+          .limit(1);
+      previousPrice = before?.price ?? null;
     }
-    return {
+    out.push({
       id: alert.id,
       type: alert.type,
       price: alert.price,
@@ -133,20 +131,19 @@ export function getAlerts(limit = 200): AlertRow[] {
       listing,
       previousPrice,
       watch: { id: watch.id, make: watch.make, model: watch.model, trim: watch.trim },
-    };
-  });
+    });
+  }
+  return out;
 }
 
-export function countUnseenAlerts(): number {
-  return (
-    db
-      .select({ n: sql<number>`count(*)` })
-      .from(alertsSent)
-      .where(eq(alertsSent.seen, false))
-      .get()?.n ?? 0
-  );
+export async function countUnseenAlerts(): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(alertsSent)
+    .where(eq(alertsSent.seen, false));
+  return Number(row?.n ?? 0);
 }
 
-export function markAllAlertsSeen() {
-  db.update(alertsSent).set({ seen: true }).where(eq(alertsSent.seen, false)).run();
+export async function markAllAlertsSeen() {
+  await db.update(alertsSent).set({ seen: true }).where(eq(alertsSent.seen, false));
 }

@@ -16,10 +16,10 @@ const typeLabels: Record<AlertRow["type"], string> = {
 };
 
 export default async function AlertsPage() {
-  const alerts = getAlerts();
+  const alerts = await getAlerts();
   const unseen = alerts.filter((a) => !a.seen).length;
   const display = await getDisplayCurrency();
-  const rates = Rates.load();
+  const rates = await Rates.load();
 
   return (
     <>

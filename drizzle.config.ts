@@ -1,9 +1,10 @@
 import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
+import { connectionOptions, toUrl } from "./scripts/db-config.cjs";
 
 export default defineConfig({
-  dialect: "sqlite",
+  dialect: "mysql",
   schema: "./src/db/schema.ts",
   out: "./drizzle",
-  dbCredentials: { url: process.env.DATABASE_PATH ?? "./data/tracker.db" },
+  dbCredentials: { url: toUrl(connectionOptions()) },
 });

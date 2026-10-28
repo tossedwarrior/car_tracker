@@ -1,54 +1,12 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "mysql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1792682886992,
-      "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1792684114148,
-      "tag": "0001_daily_job",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1792684619922,
-      "tag": "0002_refresh_on_demand",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1792685035899,
-      "tag": "0003_sold_pulls",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1792686853423,
-      "tag": "0004_listing_corrections",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1793118082302,
-      "tag": "0005_watch_images",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1793119036659,
-      "tag": "0006_car_photo_wheels",
+      "version": "5",
+      "when": 1793155839355,
+      "tag": "0000_init_mysql",
       "breakpoints": true
     }
   ]

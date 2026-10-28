@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const view = (await cookies()).get("home_view")?.value === "list" ? "list" : "expanded";
-  const cars = getHomeCars(Rates.load(), await getDisplayCurrency());
+  const cars = await getHomeCars(await Rates.load(), await getDisplayCurrency());
 
   if (cars.length === 0) {
     return (

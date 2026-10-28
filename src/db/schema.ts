@@ -1,45 +1,56 @@
-import { sql } from "drizzle-orm";
 import {
-  blob,
+  boolean,
+  customType,
+  double,
   index,
-  integer,
-  real,
-  sqliteTable,
+  int,
+  mediumtext,
+  mysqlTable,
   text,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+  varchar,
+} from "drizzle-orm/mysql-core";
 
+// MySQL: GoDaddy's managed database on the live site, a local server on the
+// Mac (scripts/mysql-local.sh).
+//
 // Dates are ISO-8601 strings (YYYY-MM-DD or full timestamps). Prices are whole
 // units of `currency` (no cents). Mileage is always stored in km; adapters
-// convert from miles.
+// convert from miles. Text that's indexed or compared is varchar (MySQL can't
+// index unlimited text); free text is text.
 
 export const currencies = ["CAD", "USD"] as const;
 export type Currency = (typeof currencies)[number];
 
+const id = () => int("id").autoincrement().primaryKey();
+const date = (name: string) => varchar(name, { length: 32 });
 const createdAt = () =>
-  text("created_at")
+  date("created_at")
     .notNull()
-    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`);
+    .$defaultFn(() => new Date().toISOString());
+
+/** Images up to MAX_IMAGE_BYTES; MySQL's plain blob stops at 64 KB. */
+const longblob = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "longblob" });
 
 /** The cars I care about. */
-export const watchlist = sqliteTable("watchlist", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  make: text("make").notNull(),
-  model: text("model").notNull(),
-  yearMin: integer("year_min").notNull(),
-  yearMax: integer("year_max").notNull(),
-  maxKm: integer("max_km"),
+export const watchlist = mysqlTable("watchlist", {
+  id: id(),
+  make: varchar("make", { length: 100 }).notNull(),
+  model: varchar("model", { length: 100 }).notNull(),
+  yearMin: int("year_min").notNull(),
+  yearMax: int("year_max").notNull(),
+  maxKm: int("max_km"),
   trim: text("trim"),
-  targetPrice: integer("target_price"),
-  targetCurrency: text("target_currency", { enum: currencies })
+  targetPrice: int("target_price"),
+  targetCurrency: varchar("target_currency", { length: 16, enum: currencies })
     .notNull()
     .default("CAD"),
   notes: text("notes"),
-  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  active: boolean("active").notNull().default(true),
   // When this car's listings were last refreshed (ISO timestamp).
-  lastRefreshed: text("last_refreshed"),
+  lastRefreshed: date("last_refreshed"),
   // When auction results were last pulled for this car (ISO timestamp).
-  lastSoldPull: text("last_sold_pull"),
+  lastSoldPull: date("last_sold_pull"),
   createdAt: createdAt(),
 });
 
@@ -47,46 +58,46 @@ export const listingStatuses = ["active", "gone"] as const;
 export const sellerTypes = ["dealer", "private", "auction", "unknown"] as const;
 
 /** One row per car for sale. */
-export const listings = sqliteTable(
+export const listings = mysqlTable(
   "listings",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    source: text("source").notNull(),
-    sourceListingId: text("source_listing_id").notNull(),
-    vin: text("vin"),
-    watchId: integer("watch_id")
+    id: id(),
+    source: varchar("source", { length: 32 }).notNull(),
+    sourceListingId: varchar("source_listing_id", { length: 191 }).notNull(),
+    vin: varchar("vin", { length: 64 }),
+    watchId: int("watch_id")
       .notNull()
       .references(() => watchlist.id, { onDelete: "cascade" }),
     title: text("title"),
-    make: text("make"),
-    model: text("model"),
-    year: integer("year"),
+    make: varchar("make", { length: 100 }),
+    model: varchar("model", { length: 100 }),
+    year: int("year"),
     trim: text("trim"),
-    km: integer("km"),
-    price: integer("price"),
-    currency: text("currency", { enum: currencies }).notNull(),
-    sellerType: text("seller_type", { enum: sellerTypes })
+    km: int("km"),
+    price: int("price"),
+    currency: varchar("currency", { length: 16, enum: currencies }).notNull(),
+    sellerType: varchar("seller_type", { length: 16, enum: sellerTypes })
       .notNull()
       .default("unknown"),
     sellerName: text("seller_name"),
     location: text("location"),
-    country: text("country"),
+    country: varchar("country", { length: 8 }),
     url: text("url"),
     // Date the source says the car was listed, when it gives one; otherwise
     // days listed is counted from first_seen.
-    listedAt: text("listed_at"),
-    firstSeen: text("first_seen").notNull(),
-    lastSeen: text("last_seen").notNull(),
+    listedAt: date("listed_at"),
+    firstSeen: date("first_seen").notNull(),
+    lastSeen: date("last_seen").notNull(),
     // Corrections I made by hand, because a source got them wrong (e.g. a USD
     // price at a Canadian dealer's U.S. branch). Refreshes keep these.
-    currencyOverride: text("currency_override", { enum: currencies }),
+    currencyOverride: varchar("currency_override", { length: 16, enum: currencies }),
     locationOverride: text("location_override"),
     // Date this listing's source last completed a full search for its watch.
     // Stops a second run on the same day from counting a miss twice.
-    lastChecked: text("last_checked"),
+    lastChecked: date("last_checked"),
     // Refreshes (on different days) in a row the listing was missing from. At 3 it's "gone".
-    missedChecks: integer("missed_checks").notNull().default(0),
-    status: text("status", { enum: listingStatuses })
+    missedChecks: int("missed_checks").notNull().default(0),
+    status: varchar("status", { length: 16, enum: listingStatuses })
       .notNull()
       .default("active"),
   },
@@ -98,36 +109,36 @@ export const listings = sqliteTable(
 );
 
 /** Saved each time a listing's price changes. */
-export const priceSnapshots = sqliteTable(
+export const priceSnapshots = mysqlTable(
   "price_snapshots",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    listingId: integer("listing_id")
+    id: id(),
+    listingId: int("listing_id")
       .notNull()
       .references(() => listings.id, { onDelete: "cascade" }),
-    date: text("date").notNull(),
-    price: integer("price").notNull(),
-    currency: text("currency", { enum: currencies }).notNull(),
+    date: date("date").notNull(),
+    price: int("price").notNull(),
+    currency: varchar("currency", { length: 16, enum: currencies }).notNull(),
   },
   (t) => [index("price_snapshots_listing_idx").on(t.listingId, t.date)],
 );
 
 /** Auction results to compare asking prices against. */
-export const soldResults = sqliteTable(
+export const soldResults = mysqlTable(
   "sold_results",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    source: text("source").notNull(),
-    sourceResultId: text("source_result_id").notNull(),
+    id: id(),
+    source: varchar("source", { length: 32 }).notNull(),
+    sourceResultId: varchar("source_result_id", { length: 191 }).notNull(),
     auctionHouse: text("auction_house"),
     title: text("title").notNull(),
-    make: text("make"),
-    model: text("model"),
-    year: integer("year"),
-    km: integer("km"),
-    price: integer("price").notNull(),
-    currency: text("currency").notNull(),
-    soldDate: text("sold_date").notNull(),
+    make: varchar("make", { length: 100 }),
+    model: varchar("model", { length: 100 }),
+    year: int("year"),
+    km: int("km"),
+    price: int("price").notNull(),
+    currency: varchar("currency", { length: 8 }).notNull(),
+    soldDate: date("sold_date").notNull(),
     url: text("url"),
     createdAt: createdAt(),
   },
@@ -138,20 +149,20 @@ export const soldResults = sqliteTable(
 );
 
 /** Weekly market trend for each watched car. */
-export const marketSnapshots = sqliteTable(
+export const marketSnapshots = mysqlTable(
   "market_snapshots",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    watchId: integer("watch_id")
+    id: id(),
+    watchId: int("watch_id")
       .notNull()
       .references(() => watchlist.id, { onDelete: "cascade" }),
     // Monday of the ISO week, YYYY-MM-DD.
-    week: text("week").notNull(),
-    medianAsk: integer("median_ask"),
-    medianSold: integer("median_sold"),
-    listingCount: integer("listing_count").notNull(),
-    medianDaysListed: real("median_days_listed"),
-    currency: text("currency", { enum: currencies }).notNull(),
+    week: date("week").notNull(),
+    medianAsk: int("median_ask"),
+    medianSold: int("median_sold"),
+    listingCount: int("listing_count").notNull(),
+    medianDaysListed: double("median_days_listed"),
+    currency: varchar("currency", { length: 16, enum: currencies }).notNull(),
   },
   (t) => [uniqueIndex("market_snapshots_watch_week_uq").on(t.watchId, t.week)],
 );
@@ -159,18 +170,18 @@ export const marketSnapshots = sqliteTable(
 export const alertTypes = ["new_listing", "price_drop", "under_target"] as const;
 
 /** So the same alert isn't sent twice. */
-export const alertsSent = sqliteTable(
+export const alertsSent = mysqlTable(
   "alerts_sent",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    listingId: integer("listing_id")
+    id: id(),
+    listingId: int("listing_id")
       .notNull()
       .references(() => listings.id, { onDelete: "cascade" }),
-    type: text("type", { enum: alertTypes }).notNull(),
+    type: varchar("type", { length: 16, enum: alertTypes }).notNull(),
     // Price the alert fired at, so each new price drop alerts once.
-    price: integer("price").notNull().default(0),
-    date: text("date").notNull(),
-    seen: integer("seen", { mode: "boolean" }).notNull().default(false),
+    price: int("price").notNull().default(0),
+    date: date("date").notNull(),
+    seen: boolean("seen").notNull().default(false),
   },
   (t) => [
     uniqueIndex("alerts_sent_listing_type_price_uq").on(
@@ -182,27 +193,27 @@ export const alertsSent = sqliteTable(
 );
 
 /** Running count of API calls per source per month, to stay on free limits. */
-export const apiUsage = sqliteTable(
+export const apiUsage = mysqlTable(
   "api_usage",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    source: text("source").notNull(),
+    id: id(),
+    source: varchar("source", { length: 32 }).notNull(),
     // YYYY-MM
-    month: text("month").notNull(),
-    calls: integer("calls").notNull().default(0),
+    month: varchar("month", { length: 7 }).notNull(),
+    calls: int("calls").notNull().default(0),
   },
   (t) => [uniqueIndex("api_usage_source_month_uq").on(t.source, t.month)],
 );
 
 /** Cached daily exchange rates for CAD/USD display. */
-export const fxRates = sqliteTable(
+export const fxRates = mysqlTable(
   "fx_rates",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    date: text("date").notNull(),
-    base: text("base").notNull(),
-    quote: text("quote").notNull(),
-    rate: real("rate").notNull(),
+    id: id(),
+    date: date("date").notNull(),
+    base: varchar("base", { length: 8 }).notNull(),
+    quote: varchar("quote", { length: 8 }).notNull(),
+    rate: double("rate").notNull(),
   },
   (t) => [uniqueIndex("fx_rates_date_pair_uq").on(t.date, t.base, t.quote)],
 );
@@ -210,38 +221,38 @@ export const fxRates = sqliteTable(
 export const checkRunStatuses = ["running", "ok", "partial", "failed"] as const;
 
 /** One row per refresh, for the settings page. */
-export const checkRuns = sqliteTable("check_runs", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  startedAt: text("started_at").notNull(),
-  finishedAt: text("finished_at"),
-  status: text("status", { enum: checkRunStatuses }).notNull().default("running"),
+export const checkRuns = mysqlTable("check_runs", {
+  id: id(),
+  startedAt: date("started_at").notNull(),
+  finishedAt: date("finished_at"),
+  status: varchar("status", { length: 16, enum: checkRunStatuses }).notNull().default("running"),
   // What happened, one line per watch and source.
-  log: text("log").notNull().default(""),
+  log: mediumtext("log").notNull().$defaultFn(() => ""),
 });
 
 export const imageKinds = ["logo", "photo"] as const;
 export type ImageKind = (typeof imageKinds)[number];
 
 /** A watched car's brand logo and car photo, stored with the data so they survive redeploys. */
-export const watchImages = sqliteTable(
+export const watchImages = mysqlTable(
   "watch_images",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    watchId: integer("watch_id")
+    id: id(),
+    watchId: int("watch_id")
       .notNull()
       .references(() => watchlist.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: imageKinds }).notNull(),
-    contentType: text("content_type").notNull(),
-    data: blob("data", { mode: "buffer" }).notNull(),
+    kind: varchar("kind", { length: 16, enum: imageKinds }).notNull(),
+    contentType: varchar("content_type", { length: 64 }).notNull(),
+    data: longblob("data").notNull(),
     fileName: text("file_name"),
     // Pixel size, so pages can reserve the right space before the image loads.
-    width: integer("width"),
-    height: integer("height"),
+    width: int("width"),
+    height: int("height"),
     // Car photos only: where the two wheels are, so they can turn (JSON,
     // see WheelSpec in src/lib/wheels.ts), and whether the car faces right.
     wheels: text("wheels"),
-    facesRight: integer("faces_right", { mode: "boolean" }).notNull().default(false),
-    updatedAt: text("updated_at").notNull(),
+    facesRight: boolean("faces_right").notNull().default(false),
+    updatedAt: date("updated_at").notNull(),
   },
   (t) => [uniqueIndex("watch_images_watch_kind_uq").on(t.watchId, t.kind)],
 );

@@ -17,7 +17,7 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const signedIn = await isValidSession((await cookies()).get(SESSION_COOKIE)?.value);
   // Signed out (sign-in page only): no navigation, nothing from the database.
-  const unseenAlerts = signedIn ? countUnseenAlerts() : 0;
+  const unseenAlerts = signedIn ? await countUnseenAlerts() : 0;
 
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable}`}>

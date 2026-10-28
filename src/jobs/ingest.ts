@@ -34,7 +34,7 @@ export interface IngestStats {
  *   results count a miss. After MISSES_UNTIL_GONE misses in a row a car is
  *   marked gone, never deleted.
  */
-export function recordListings({
+export async function recordListings({
   watchId,
   source,
   found,
@@ -47,7 +47,7 @@ export function recordListings({
   /** Local date of the check, YYYY-MM-DD. */
   date: string;
   complete: boolean;
-}): IngestStats {
+}): Promise<IngestStats> {
   const stats: IngestStats = {
     added: 0,
     addedIds: [],
@@ -60,37 +60,39 @@ export function recordListings({
     gone: 0,
   };
 
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (const l of found) {
-      const existing =
-        (l.vin &&
-          tx
+      const [byVin] = l.vin
+        ? await tx
             .select()
             .from(listings)
             .where(and(eq(listings.watchId, watchId), eq(listings.vin, l.vin)))
-            .get()) ||
-        tx
-          .select()
-          .from(listings)
-          .where(
-            and(
-              eq(listings.watchId, watchId),
-              eq(listings.source, source),
-              eq(listings.sourceListingId, l.sourceListingId),
-            ),
-          )
-          .get();
+            .limit(1)
+        : [];
+      const [bySourceId] = byVin
+        ? []
+        : await tx
+            .select()
+            .from(listings)
+            .where(
+              and(
+                eq(listings.watchId, watchId),
+                eq(listings.source, source),
+                eq(listings.sourceListingId, l.sourceListingId),
+              ),
+            )
+            .limit(1);
+      const existing = byVin ?? bySourceId;
 
       if (!existing) {
-        const row = tx
+        const [row] = await tx
           .insert(listings)
           .values({ ...l, watchId, firstSeen: date, lastSeen: date, lastChecked: date })
-          .returning({ id: listings.id })
-          .get();
+          .$returningId();
         if (l.price != null) {
-          tx.insert(priceSnapshots)
-            .values({ listingId: row.id, date, price: l.price, currency: l.currency })
-            .run();
+          await tx
+            .insert(priceSnapshots)
+            .values({ listingId: row.id, date, price: l.price, currency: l.currency });
         }
         stats.added++;
         stats.addedIds.push(row.id);
@@ -101,10 +103,10 @@ export function recordListings({
 
       if (existing.source !== source) {
         // Another source owns this row; just note the car is still for sale.
-        tx.update(listings)
+        await tx
+          .update(listings)
           .set({ lastSeen: date, missedChecks: 0, status: "active" })
-          .where(eq(listings.id, existing.id))
-          .run();
+          .where(eq(listings.id, existing.id));
         stats.matchedByVin++;
         continue;
       }
@@ -114,9 +116,7 @@ export function recordListings({
       const location = existing.locationOverride ?? l.location;
 
       if (l.price != null && l.price !== existing.price) {
-        tx.insert(priceSnapshots)
-          .values({ listingId: existing.id, date, price: l.price, currency })
-          .run();
+        await tx.insert(priceSnapshots).values({ listingId: existing.id, date, price: l.price, currency });
         if (existing.price != null) {
           if (l.price < existing.price) stats.priceDrops++;
           else stats.priceRises++;
@@ -124,7 +124,8 @@ export function recordListings({
       }
 
       const { source: _s, sourceListingId: _id, ...fields } = l;
-      tx.update(listings)
+      await tx
+        .update(listings)
         .set({
           ...fields,
           currency,
@@ -136,14 +137,13 @@ export function recordListings({
           missedChecks: 0,
           status: "active",
         })
-        .where(eq(listings.id, existing.id))
-        .run();
+        .where(eq(listings.id, existing.id));
       stats.updated++;
     }
 
     if (!complete) return;
 
-    const notSeen = tx
+    const notSeen = await tx
       .select({ id: listings.id, missedChecks: listings.missedChecks })
       .from(listings)
       .where(
@@ -155,16 +155,15 @@ export function recordListings({
           // Count at most one miss per day, however many times it's refreshed.
           or(isNull(listings.lastChecked), lt(listings.lastChecked, date)),
         ),
-      )
-      .all();
+      );
 
     for (const row of notSeen) {
       const missedChecks = row.missedChecks + 1;
       const gone = missedChecks >= MISSES_UNTIL_GONE;
-      tx.update(listings)
+      await tx
+        .update(listings)
         .set({ missedChecks, lastChecked: date, status: gone ? "gone" : "active" })
-        .where(eq(listings.id, row.id))
-        .run();
+        .where(eq(listings.id, row.id));
       stats.missed++;
       if (gone) stats.gone++;
     }

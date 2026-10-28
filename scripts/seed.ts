@@ -6,7 +6,7 @@
 import "dotenv/config";
 import fs from "node:fs";
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { closeDb, db, ignoreDuplicate, wasInserted } from "@/db";
 import { listings, priceSnapshots, watchlist } from "@/db/schema";
 import { normalize } from "@/sources/autodev";
 
@@ -23,28 +23,36 @@ const example = {
   targetCurrency: "CAD" as const,
 };
 
-let watch = db
-  .select()
-  .from(watchlist)
-  .where(and(eq(watchlist.make, example.make), eq(watchlist.model, example.model)))
-  .get();
-watch ??= db.insert(watchlist).values(example).returning().get();
+const find = async () =>
+  (
+    await db
+      .select()
+      .from(watchlist)
+      .where(and(eq(watchlist.make, example.make), eq(watchlist.model, example.model)))
+      .limit(1)
+  )[0];
+let watch = await find();
+if (!watch) {
+  await db.insert(watchlist).values(example);
+  watch = (await find())!;
+}
 
 const raw = JSON.parse(fs.readFileSync(FIXTURE, "utf8")) as { data: Parameters<typeof normalize>[0][] };
 let added = 0;
 for (const listing of raw.data.map(normalize)) {
   if (!listing) continue;
-  const row = db
+  const result = await db
     .insert(listings)
     .values({ ...listing, watchId: watch.id, firstSeen: SEEN, lastSeen: SEEN, lastChecked: SEEN })
-    .onConflictDoNothing()
-    .returning({ id: listings.id, price: listings.price, currency: listings.currency })
-    .get();
-  if (!row) continue;
+    .onDuplicateKeyUpdate(ignoreDuplicate);
+  if (!wasInserted(result)) continue;
   added++;
-  if (row.price != null) {
-    db.insert(priceSnapshots).values({ listingId: row.id, date: SEEN, price: row.price, currency: row.currency }).run();
+  if (listing.price != null) {
+    await db
+      .insert(priceSnapshots)
+      .values({ listingId: result[0].insertId, date: SEEN, price: listing.price, currency: listing.currency });
   }
 }
 
 console.log(`Watch #${watch.id} ${watch.make} ${watch.model}: added ${added} listings.`);
+await closeDb();

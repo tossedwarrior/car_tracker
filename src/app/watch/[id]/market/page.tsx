@@ -35,18 +35,18 @@ export default async function MarketPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ variant?: string }>;
 }) {
-  const watch = getWatch(Number((await params).id));
+  const watch = await getWatch(Number((await params).id));
   if (!watch) notFound();
 
   const display = await getDisplayCurrency();
-  const rates = Rates.load();
+  const rates = await Rates.load();
   const now = new Date();
 
-  const all = getMarketDetails(watch, rates, now);
+  const all = await getMarketDetails(watch, rates, now);
   const requested = (await searchParams).variant;
   const variant = all.variants.some((v) => v.variant === requested) ? requested! : null;
-  const details = variant ? getMarketDetails(watch, rates, now, { variant }) : all;
-  const history = getMarketHistory(watch, rates, now, { variant });
+  const details = variant ? await getMarketDetails(watch, rates, now, { variant }) : all;
+  const history = await getMarketHistory(watch, rates, now, { variant });
   const { trend, sold: months } = history;
 
   // Market numbers are kept in CAD; show them in the chosen currency at today's rate.
@@ -94,18 +94,18 @@ export default async function MarketPage({
       <WatchHeader
         watch={watch}
         tab="market"
-        forSaleCount={getListings(watch.id).length}
-        soldCount={getSoldResults(watch).length}
+        forSaleCount={(await getListings(watch.id)).length}
+        soldCount={(await getSoldResults(watch)).length}
         updated={updated}
         action={
           <>
             {watch.active && (
-              <RefreshButton watchId={watch.id} maxCalls={maxRefreshCalls(1)} label="Refresh listings" shortLabel="Refresh" />
+              <RefreshButton watchId={watch.id} maxCalls={await maxRefreshCalls(1)} label="Refresh listings" shortLabel="Refresh" />
             )}
             {hasApiKey(soldSource) && (
               <SoldPullButton
                 watchId={watch.id}
-                callsLeft={soldSource.monthlyCallLimit - getUsage(soldSource.id)}
+                callsLeft={soldSource.monthlyCallLimit - await getUsage(soldSource.id)}
               />
             )}
           </>

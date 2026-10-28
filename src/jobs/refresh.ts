@@ -46,21 +46,16 @@ export async function runRefresh({
   let calls = 0;
   let sourcesRun = 0;
 
-  const run = db
-    .insert(checkRuns)
-    .values({ startedAt: now.toISOString() })
-    .returning({ id: checkRuns.id })
-    .get();
+  const [run] = await db.insert(checkRuns).values({ startedAt: now.toISOString() }).$returningId();
 
-  const watches = db
+  const watches = await db
     .select()
     .from(watchlist)
     .where(
       watchIds
         ? and(eq(watchlist.active, true), inArray(watchlist.id, watchIds))
         : eq(watchlist.active, true),
-    )
-    .all();
+    );
   if (watches.length === 0) log.push("No active watched cars.");
   const refreshed = new Set<number>();
 
@@ -73,7 +68,7 @@ export async function runRefresh({
       log.push(`Exchange rates not updated: ${(e as Error).message}`);
     }
   }
-  const rates = Rates.load();
+  const rates = await Rates.load();
 
   for (const source of watches.length ? sources : []) {
     let ctx: SourceContext;
@@ -89,7 +84,7 @@ export async function runRefresh({
     const maxCalls = callsPerWatch({
       ...source.callsPerWatch,
       limit: source.monthlyCallLimit,
-      used: getUsage(source.id),
+      used: await getUsage(source.id),
       watchCount: watches.length,
     });
     log.push(`${source.label}: up to ${maxCalls} call(s) per car.`);
@@ -97,21 +92,22 @@ export async function runRefresh({
     for (const watch of watches) {
       const name = watchTitle(watch);
       try {
-        const firstSearch = !db
+        const [seen] = await db
           .select({ id: listings.id })
           .from(listings)
           .where(and(eq(listings.watchId, watch.id), eq(listings.source, source.id)))
-          .get();
+          .limit(1);
+        const firstSearch = !seen;
         const result = await source.search(watch, ctx, { maxCalls });
         calls += result.calls;
-        const stats = recordListings({
+        const stats = await recordListings({
           watchId: watch.id,
           source: source.id,
           found: result.listings,
           date,
           complete: !result.truncated,
         });
-        const alerts = recordAlerts({
+        const alerts = await recordAlerts({
           watchId: watch.id,
           source: source.id,
           date,
@@ -132,36 +128,33 @@ export async function runRefresh({
     }
   }
 
-  for (const id of refreshed) takeMarketSnapshot(id, rates, now);
+  for (const id of refreshed) await takeMarketSnapshot(id, rates, now);
 
   const finishedAt = new Date().toISOString();
   if (refreshed.size) {
-    db.update(watchlist)
+    await db
+      .update(watchlist)
       .set({ lastRefreshed: finishedAt })
-      .where(inArray(watchlist.id, [...refreshed]))
-      .run();
+      .where(inArray(watchlist.id, [...refreshed]));
   }
   const status =
     problems > 0 ? (calls > 0 ? "partial" : "failed") : sourcesRun > 0 || !watches.length ? "ok" : "failed";
-  db.update(checkRuns)
+  await db
+    .update(checkRuns)
     .set({ finishedAt, status, log: log.join("\n") })
-    .where(eq(checkRuns.id, run.id))
-    .run();
+    .where(eq(checkRuns.id, run.id));
 
   return { runId: run.id, status, log, calls };
 }
 
 /** Most API calls a refresh of `watchCount` cars could use, across sources with keys. */
-export function maxRefreshCalls(watchCount: number): number {
-  return listingSources
-    .filter((s) => process.env[s.apiKeyEnv])
-    .reduce(
-      (n, s) =>
-        n +
-        watchCount *
-          callsPerWatch({ ...s.callsPerWatch, limit: s.monthlyCallLimit, used: getUsage(s.id), watchCount }),
-      0,
-    );
+export async function maxRefreshCalls(watchCount: number): Promise<number> {
+  let n = 0;
+  for (const s of listingSources.filter((s) => process.env[s.apiKeyEnv])) {
+    const used = await getUsage(s.id);
+    n += watchCount * callsPerWatch({ ...s.callsPerWatch, limit: s.monthlyCallLimit, used, watchCount });
+  }
+  return n;
 }
 
 function describe(

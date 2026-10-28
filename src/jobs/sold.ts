@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, ignoreDuplicate, wasInserted } from "@/db";
 import { soldResults, watchlist } from "@/db/schema";
 import { liveContext, soldSources } from "@/sources";
 import type { SoldSource, SourceContext } from "@/sources/types";
@@ -26,7 +26,7 @@ export async function pullSoldResults(
     now = new Date(),
   }: { sources?: SoldSource[]; contextFor?: (s: SoldSource) => SourceContext; now?: Date } = {},
 ): Promise<SoldPullResult> {
-  const watch = db.select().from(watchlist).where(eq(watchlist.id, watchId)).get();
+  const [watch] = await db.select().from(watchlist).where(eq(watchlist.id, watchId)).limit(1);
   if (!watch) throw new Error(`No watched car #${watchId}`);
 
   const total: SoldPullResult = { found: 0, added: 0, calls: 0, matchedModel: null };
@@ -36,20 +36,12 @@ export async function pullSoldResults(
     total.found += result.results.length;
     total.matchedModel ??= result.matchedModel;
     for (const r of result.results) {
-      const inserted = db
-        .insert(soldResults)
-        .values(r)
-        .onConflictDoNothing()
-        .returning({ id: soldResults.id })
-        .get();
-      if (inserted) total.added++;
+      const result = await db.insert(soldResults).values(r).onDuplicateKeyUpdate(ignoreDuplicate);
+      if (wasInserted(result)) total.added++;
     }
   }
 
-  db.update(watchlist)
-    .set({ lastSoldPull: now.toISOString() })
-    .where(eq(watchlist.id, watchId))
-    .run();
+  await db.update(watchlist).set({ lastSoldPull: now.toISOString() }).where(eq(watchlist.id, watchId));
   return total;
 }
 
@@ -62,13 +54,13 @@ export function sameModel(watchModel: string, soldModel: string | null): boolean
 }
 
 /** Saved auction results for a watched car's make, model and years, newest first. */
-export function getSoldResults(watch: {
+export async function getSoldResults(watch: {
   make: string;
   model: string;
   yearMin: number;
   yearMax: number;
-}): SoldResult[] {
-  return db
+}): Promise<SoldResult[]> {
+  const rows = await db
     .select()
     .from(soldResults)
     .where(
@@ -78,9 +70,8 @@ export function getSoldResults(watch: {
         lte(soldResults.year, watch.yearMax),
       ),
     )
-    .orderBy(desc(soldResults.soldDate))
-    .all()
-    .filter((r) => sameModel(watch.model, r.model));
+    .orderBy(desc(soldResults.soldDate));
+  return rows.filter((r) => sameModel(watch.model, r.model));
 }
 
 /** Middle value; the mean of the two middle values for an even count. */

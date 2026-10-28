@@ -13,37 +13,37 @@ import { takeMarketSnapshot } from "./market";
  * Also re-labels its price history, drops an "under target" alert that no
  * longer holds, and retakes this week's market snapshot.
  */
-export function correctListing(
+export async function correctListing(
   listingId: number,
   { currency, location }: { currency: Currency | null; location: string | null },
   rates: Rates,
   now = new Date(),
 ) {
-  const listing = db.select().from(listings).where(eq(listings.id, listingId)).get();
+  const [listing] = await db.select().from(listings).where(eq(listings.id, listingId)).limit(1);
   if (!listing) throw new Error(`No listing #${listingId}`);
 
-  db.transaction((tx) => {
-    tx.update(listings)
+  await db.transaction(async (tx) => {
+    await tx
+      .update(listings)
       .set({
         currencyOverride: currency,
         locationOverride: location,
         ...(currency ? { currency } : {}),
         ...(location ? { location } : {}),
       })
-      .where(eq(listings.id, listingId))
-      .run();
+      .where(eq(listings.id, listingId));
     if (currency) {
-      tx.update(priceSnapshots).set({ currency }).where(eq(priceSnapshots.listingId, listingId)).run();
+      await tx.update(priceSnapshots).set({ currency }).where(eq(priceSnapshots.listingId, listingId));
     }
   });
 
-  const updated = db.select().from(listings).where(eq(listings.id, listingId)).get()!;
-  const watch = db.select().from(watchlist).where(eq(watchlist.id, updated.watchId)).get()!;
+  const [updated] = await db.select().from(listings).where(eq(listings.id, listingId)).limit(1);
+  const [watch] = await db.select().from(watchlist).where(eq(watchlist.id, updated.watchId)).limit(1);
   if (!isUnderTarget(rates, updated, watch)) {
-    db.delete(alertsSent)
-      .where(and(eq(alertsSent.listingId, listingId), eq(alertsSent.type, "under_target")))
-      .run();
+    await db
+      .delete(alertsSent)
+      .where(and(eq(alertsSent.listingId, listingId), eq(alertsSent.type, "under_target")));
   }
-  takeMarketSnapshot(updated.watchId, rates, now);
+  await takeMarketSnapshot(updated.watchId, rates, now);
   return updated;
 }

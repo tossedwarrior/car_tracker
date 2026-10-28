@@ -38,20 +38,20 @@ export default async function WatchListingsPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ sort?: string; gone?: string }>;
 }) {
-  const watch = getWatch(Number((await params).id));
+  const watch = await getWatch(Number((await params).id));
   if (!watch) notFound();
 
   const query = await searchParams;
   const sort: ListingSort = query.sort && query.sort in listingSorts ? (query.sort as ListingSort) : "price";
   const includeGone = query.gone === "1";
   const display = await getDisplayCurrency();
-  const rates = Rates.load();
-  let rows = getListings(watch.id, { sort, includeGone });
+  const rates = await Rates.load();
+  let rows = await getListings(watch.id, { sort, includeGone });
   // Prices come in CAD and USD, so compare them converted.
   if (sort === "price" || sort === "price-desc") {
     rows = sortByPrice(rows, rates, sort === "price" ? "asc" : "desc");
   }
-  const goneCount = countGone(watch.id);
+  const goneCount = await countGone(watch.id);
   const forSaleCount = includeGone ? rows.length - goneCount : rows.length;
 
   const href = (next: { sort?: ListingSort; gone?: boolean }) => {
@@ -69,9 +69,9 @@ export default async function WatchListingsPage({
         watch={watch}
         tab="listings"
         forSaleCount={forSaleCount}
-        soldCount={getSoldResults(watch).length}
+        soldCount={(await getSoldResults(watch)).length}
         updated={updatedText("Listings refreshed", watch.lastRefreshed, "Listings not refreshed yet")}
-        action={watch.active && <RefreshButton watchId={watch.id} maxCalls={maxRefreshCalls(1)} />}
+        action={watch.active && <RefreshButton watchId={watch.id} maxCalls={await maxRefreshCalls(1)} />}
       />
 
       <div className="toolbar">

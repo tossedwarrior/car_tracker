@@ -6,7 +6,8 @@
 //   1. installs dependencies if they're missing;
 //   2. builds the app if there's no build, or the build is from older code
 //      (hosts can leave a previous version's files behind);
-//   3. creates or updates the database tables (DATABASE_PATH);
+//   3. creates or updates the database tables in MySQL (see
+//      scripts/db-config.cjs for the variables it reads);
 // then serves the app on the host's PORT.
 
 const { execSync } = require("node:child_process");
@@ -32,24 +33,30 @@ if (!stamp.isCurrent()) {
 
 process.env.NODE_ENV = "production";
 
-// Database tables, from the migrations in drizzle/.
-const Database = require("better-sqlite3");
-const { drizzle } = require("drizzle-orm/better-sqlite3");
-const { migrate } = require("drizzle-orm/better-sqlite3/migrator");
+async function main() {
+  // Database tables, from the migrations in drizzle/.
+  const mysql = require("mysql2/promise");
+  const { drizzle } = require("drizzle-orm/mysql2");
+  const { migrate } = require("drizzle-orm/mysql2/migrator");
+  const dbConfig = require("./scripts/db-config.cjs");
 
-const dbPath = path.resolve(dir, process.env.DATABASE_PATH || "data/tracker.db");
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-const sqlite = new Database(dbPath);
-migrate(drizzle(sqlite), { migrationsFolder: path.join(dir, "drizzle") });
-sqlite.close();
+  const options = dbConfig.connectionOptions();
+  const connection = await mysql.createConnection(options);
+  await migrate(drizzle(connection), { migrationsFolder: path.join(dir, "drizzle") });
+  await connection.end();
 
-const next = require("next");
-const app = next({ dev: false, dir });
-const handle = app.getRequestHandler();
+  const next = require("next");
+  const app = next({ dev: false, dir });
+  const handle = app.getRequestHandler();
+  await app.prepare();
 
-app.prepare().then(() => {
   const port = Number(process.env.PORT) || 3000;
   createServer((req, res) => handle(req, res)).listen(port, () => {
-    console.log(`Car Price Tracker ready on port ${port}, database ${dbPath}`);
+    console.log(`Poster Wall ready on port ${port}, database ${dbConfig.describe(options)}`);
   });
+}
+
+main().catch((e) => {
+  console.error(`Poster Wall didn't start: ${e.message}`);
+  process.exit(1);
 });

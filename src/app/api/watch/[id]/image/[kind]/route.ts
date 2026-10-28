@@ -8,7 +8,7 @@ export async function GET(
 ) {
   const { id, kind } = await params;
   if (!imageKinds.includes(kind as ImageKind)) return new Response("Not found", { status: 404 });
-  const image = getImage(Number(id), kind as ImageKind);
+  const image = await getImage(Number(id), kind as ImageKind);
   if (!image) return new Response("Not found", { status: 404 });
 
   return new Response(new Uint8Array(image.data), {

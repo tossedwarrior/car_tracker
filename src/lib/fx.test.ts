@@ -25,7 +25,7 @@ describe("syncRates", () => {
 
     await syncRates({ fetch, now: new Date("2026-10-23T16:00:00Z") });
     expect(urls[1]).toContain("start_date=2026-10-21&end_date=2026-10-23");
-    expect(db.select().from(fxRates).all()).toHaveLength(36); // no duplicates
+    expect((await db.select().from(fxRates))).toHaveLength(36); // no duplicates
   });
 });
 
@@ -36,21 +36,21 @@ describe("Rates", () => {
     { date: "2026-10-19", base: "GBP", rate: 1.85 },
   ]);
 
-  it("converts both ways through CAD", () => {
+  it("converts both ways through CAD", async () => {
     expect(rates.convert(100000, "USD", "CAD")).toBe(138000);
     expect(rates.convert(138000, "CAD", "USD")).toBe(100000);
     expect(rates.convert(100000, "GBP", "USD")).toBe(134058);
     expect(rates.convert(5, "CAD", "CAD")).toBe(5);
   });
 
-  it("uses the rate on the date, or the last one before it", () => {
+  it("uses the rate on the date, or the last one before it", async () => {
     expect(rates.convert(100, "USD", "CAD", "2026-10-16")).toBe(140);
     expect(rates.convert(100, "USD", "CAD", "2026-10-18")).toBe(140); // weekend
     expect(rates.convert(100, "USD", "CAD", "2026-10-19T09:00:00Z")).toBe(138);
     expect(rates.convert(100, "USD", "CAD", "2020-01-01")).toBe(140); // before any: earliest
   });
 
-  it("returns null for a currency it has no rates for", () => {
+  it("returns null for a currency it has no rates for", async () => {
     expect(rates.convert(100, "SEK", "CAD")).toBeNull();
     expect(rates.latestDate).toBe("2026-10-19");
   });

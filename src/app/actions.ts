@@ -39,13 +39,13 @@ export async function saveWatch(
     return { errors, values };
   }
 
-  if (id) updateWatch(id, parsed.values);
-  const watchId = id ?? createWatch(parsed.values);
-  if (logo.image) saveImage(watchId, "logo", logo.image);
-  if (photo.image) saveImage(watchId, "photo", photo.image);
+  if (id) await updateWatch(id, parsed.values);
+  const watchId = id ?? (await createWatch(parsed.values));
+  if (logo.image) await saveImage(watchId, "logo", logo.image);
+  if (photo.image) await saveImage(watchId, "photo", photo.image);
   const { parseWheels } = await import("@/lib/wheels");
   const { saveCarPhotoSettings } = await import("@/lib/images");
-  saveCarPhotoSettings(watchId, {
+  await saveCarPhotoSettings(watchId, {
     wheels: parseWheels(String(form.get("wheels") ?? "")),
     facesRight: form.get("facesRight") === "on",
   });
@@ -56,7 +56,7 @@ export async function saveWatch(
 
 export async function removeWatch(form: FormData) {
   const id = Number(form.get("id"));
-  if (id) deleteWatch(id);
+  if (id) await deleteWatch(id);
   revalidatePath("/");
   redirect("/");
 }
@@ -112,7 +112,7 @@ export async function setDisplayCurrency(form: FormData) {
 
 export async function markAlertsSeen() {
   const { markAllAlertsSeen } = await import("@/jobs/alerts");
-  markAllAlertsSeen();
+  await markAllAlertsSeen();
   revalidatePath("/", "layout");
 }
 
@@ -122,13 +122,13 @@ export async function fixListing(form: FormData) {
   const id = Number(form.get("id"));
   const currency = String(form.get("currency") ?? "");
   const location = String(form.get("location") ?? "").trim();
-  const listing = correctListing(
+  const listing = await correctListing(
     id,
     {
       currency: currency === "CAD" || currency === "USD" ? currency : null,
       location: location || null,
     },
-    Rates.load(),
+    await Rates.load(),
   );
   revalidatePath("/", "layout");
   redirect(`/watch/${listing.watchId}`);

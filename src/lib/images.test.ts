@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
+import { insertRow } from "@/test/db";
 import { watchlist } from "@/db/schema";
 import { GET } from "@/app/api/watch/[id]/image/[kind]/route";
 import { getImage, imageVersions, MAX_IMAGE_BYTES, readImageUpload, saveImage, sniffImageType } from "./images";
@@ -12,7 +13,7 @@ const SVG = new TextEncoder().encode('<?xml version="1.0"?>\n<svg xmlns="http://
 const file = (bytes: Uint8Array, name = "logo.png", type = "image/png") => new File([new Uint8Array(bytes)], name, { type });
 
 describe("sniffImageType", () => {
-  it("goes by the file's bytes, not its name", () => {
+  it("goes by the file's bytes, not its name", async () => {
     expect(sniffImageType(PNG)).toBe("image/png");
     expect(sniffImageType(JPEG)).toBe("image/jpeg");
     expect(sniffImageType(WEBP)).toBe("image/webp");
@@ -43,12 +44,12 @@ describe("readImageUpload", () => {
 
 describe("saving and serving images", () => {
   it("keeps one logo and one photo per car, replacing on a new upload", async () => {
-    const id = db.insert(watchlist).values({ make: "Ferrari", model: "Roma", yearMin: 2021, yearMax: 2024 }).returning().get().id;
-    saveImage(id, "logo", { contentType: "image/png", data: Buffer.from(PNG), fileName: "a.png", width: 8, height: 8 }, new Date("2026-10-27T10:00:00Z"));
-    saveImage(id, "logo", { contentType: "image/jpeg", data: Buffer.from(JPEG), fileName: "b.jpg", width: 8, height: 8 }, new Date("2026-10-27T11:00:00Z"));
+    const id = (await insertRow(watchlist, { make: "Ferrari", model: "Roma", yearMin: 2021, yearMax: 2024 })).id;
+    await saveImage(id, "logo", { contentType: "image/png", data: Buffer.from(PNG), fileName: "a.png", width: 8, height: 8 }, new Date("2026-10-27T10:00:00Z"));
+    await saveImage(id, "logo", { contentType: "image/jpeg", data: Buffer.from(JPEG), fileName: "b.jpg", width: 8, height: 8 }, new Date("2026-10-27T11:00:00Z"));
 
-    expect(getImage(id, "logo")).toMatchObject({ contentType: "image/jpeg", fileName: "b.jpg" });
-    expect(imageVersions(id)).toEqual({ logo: "2026-10-27T11:00:00.000Z" });
+    expect(await getImage(id, "logo")).toMatchObject({ contentType: "image/jpeg", fileName: "b.jpg" });
+    expect(await imageVersions(id)).toEqual({ logo: "2026-10-27T11:00:00.000Z" });
 
     const res = await GET(new Request("http://x"), { params: Promise.resolve({ id: String(id), kind: "logo" }) });
     expect(res.status).toBe(200);

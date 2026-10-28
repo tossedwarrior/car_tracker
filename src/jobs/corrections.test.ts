@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
+import { insertRow } from "@/test/db";
 import { alertsSent, listings, priceSnapshots, watchlist } from "@/db/schema";
 import { Rates } from "@/lib/fx";
 import type { NormalizedListing } from "@/sources/types";
@@ -33,40 +34,36 @@ const hgregoire = (price = 239000): NormalizedListing => ({
 });
 
 describe("correctListing", () => {
-  it("fixes the currency and location, drops a wrong under-target alert, and survives refreshes", () => {
-    const watchId = db
-      .insert(watchlist)
-      .values({ make: "Ferrari", model: "458 Italia", yearMin: 2011, yearMax: 2015, targetPrice: 250000, targetCurrency: "CAD" })
-      .returning()
-      .get().id;
-    const refresh = (date: string, price?: number) => {
-      const { addedIds } = recordListings({ watchId, source: "marketcheck", found: [hgregoire(price)], date, complete: true });
-      return recordAlerts({ watchId, source: "marketcheck", date, rates, newListingIds: addedIds, firstSearch: false });
+  it("fixes the currency and location, drops a wrong under-target alert, and survives refreshes", async () => {
+    const watchId = (await insertRow(watchlist, { make: "Ferrari", model: "458 Italia", yearMin: 2011, yearMax: 2015, targetPrice: 250000, targetCurrency: "CAD" })).id;
+    const refresh = async (date: string, price?: number) => {
+      const { addedIds } = await recordListings({ watchId, source: "marketcheck", found: [hgregoire(price)], date, complete: true });
+      return await recordAlerts({ watchId, source: "marketcheck", date, rates, newListingIds: addedIds, firstSearch: false });
     };
 
     // CA$239,000 looks under the CA$250,000 target...
-    expect(refresh("2026-10-22").under_target).toBe(1);
-    const id = db.select().from(listings).where(eq(listings.watchId, watchId)).get()!.id;
+    expect((await refresh("2026-10-22")).under_target).toBe(1);
+    const id = (await db.select().from(listings).where(eq(listings.watchId, watchId)).limit(1))[0]!.id;
 
     // ...but it's US$239,000 (CA$334,600) in West Palm Beach.
-    correctListing(id, { currency: "USD", location: "West Palm Beach, FL" }, rates, new Date(2026, 9, 22));
-    const row = () => db.select().from(listings).where(eq(listings.id, id)).get()!;
-    expect(row()).toMatchObject({ currency: "USD", location: "West Palm Beach, FL", currencyOverride: "USD" });
-    expect(db.select().from(alertsSent).where(eq(alertsSent.listingId, id)).all().map((a) => a.type)).toEqual([
+    await correctListing(id, { currency: "USD", location: "West Palm Beach, FL" }, rates, new Date(2026, 9, 22));
+    const row = async () => (await db.select().from(listings).where(eq(listings.id, id)).limit(1))[0]!;
+    expect(await row()).toMatchObject({ currency: "USD", location: "West Palm Beach, FL", currencyOverride: "USD" });
+    expect((await db.select().from(alertsSent).where(eq(alertsSent.listingId, id))).map((a) => a.type)).toEqual([
       "new_listing",
     ]);
-    expect(db.select().from(priceSnapshots).where(eq(priceSnapshots.listingId, id)).get()?.currency).toBe("USD");
+    expect((await db.select().from(priceSnapshots).where(eq(priceSnapshots.listingId, id)).limit(1))[0]?.currency).toBe("USD");
 
     // The next refresh still reports CAD and Victoriaville; the correction holds.
-    refresh("2026-10-23", 229000);
-    expect(row()).toMatchObject({ currency: "USD", location: "West Palm Beach, FL", price: 229000 });
+    await refresh("2026-10-23", 229000);
+    expect(await row()).toMatchObject({ currency: "USD", location: "West Palm Beach, FL", price: 229000 });
     expect(
-      db.select().from(priceSnapshots).where(eq(priceSnapshots.listingId, id)).all().map((s) => s.currency),
+      (await db.select().from(priceSnapshots).where(eq(priceSnapshots.listingId, id))).map((s) => s.currency),
     ).toEqual(["USD", "USD"]);
 
     // Clearing the correction hands it back to the source on the next refresh.
-    correctListing(id, { currency: null, location: null }, rates);
-    refresh("2026-10-24", 229000);
-    expect(row()).toMatchObject({ currency: "CAD", location: "Victoriaville, QC", currencyOverride: null });
+    await correctListing(id, { currency: null, location: null }, rates);
+    await refresh("2026-10-24", 229000);
+    expect(await row()).toMatchObject({ currency: "CAD", location: "Victoriaville, QC", currencyOverride: null });
   });
 });

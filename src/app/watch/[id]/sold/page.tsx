@@ -14,17 +14,17 @@ import { getUsage } from "@/sources/usage";
 export const dynamic = "force-dynamic";
 
 export default async function SoldPricesPage({ params }: { params: Promise<{ id: string }> }) {
-  const watch = getWatch(Number((await params).id));
+  const watch = await getWatch(Number((await params).id));
   if (!watch) notFound();
 
   const display = await getDisplayCurrency();
-  const rates = Rates.load();
-  const sold = getSoldResults(watch).map((r) => ({
+  const rates = await Rates.load();
+  const sold = (await getSoldResults(watch)).map((r) => ({
     ...r,
     // Each sale converted at the rate on the day it sold.
     shown: showMoney(rates, display, r.price, r.currency, r.soldDate),
   }));
-  const forSale = getListings(watch.id);
+  const forSale = await getListings(watch.id);
 
   const values = (xs: Array<number | null>) => xs.filter((v): v is number => v != null);
   const typicalSale = median(values(sold.map((r) => r.shown.value)));
@@ -35,7 +35,7 @@ export default async function SoldPricesPage({ params }: { params: Promise<{ id:
   const gap = typicalSale && typicalAsk ? (typicalAsk - typicalSale) / typicalSale : null;
 
   const source = soldSources[0];
-  const callsLeft = source.monthlyCallLimit - getUsage(source.id);
+  const callsLeft = source.monthlyCallLimit - await getUsage(source.id);
   const keySet = hasApiKey(source);
 
   return (

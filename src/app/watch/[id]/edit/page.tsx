@@ -8,9 +8,9 @@ import { getWatch } from "@/lib/watchlist";
 export const dynamic = "force-dynamic";
 
 export default async function EditWatchPage({ params }: { params: Promise<{ id: string }> }) {
-  const watch = getWatch(Number((await params).id));
+  const watch = await getWatch(Number((await params).id));
   if (!watch) notFound();
-  const images = getCarImages(watch.id);
+  const images = await getCarImages(watch.id);
 
   return (
     <div className="form-page">

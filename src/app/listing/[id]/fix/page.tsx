@@ -8,7 +8,7 @@ import { currencies, listings } from "@/db/schema";
 export const dynamic = "force-dynamic";
 
 export default async function FixListingPage({ params }: { params: Promise<{ id: string }> }) {
-  const l = db.select().from(listings).where(eq(listings.id, Number((await params).id))).get();
+  const [l] = await db.select().from(listings).where(eq(listings.id, Number((await params).id))).limit(1);
   if (!l) notFound();
 
   return (

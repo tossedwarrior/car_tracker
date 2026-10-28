@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { db, ignoreDuplicate } from "@/db";
 import { fxRates } from "@/db/schema";
 import type { FetchLike } from "@/sources/types";
 
@@ -28,7 +28,7 @@ export async function syncRates({
   fetch: fetchFn = (url, init) => fetch(url, init),
   now = new Date(),
 }: { fetch?: FetchLike; now?: Date } = {}): Promise<number> {
-  const latest = db.select({ date: fxRates.date }).from(fxRates).orderBy(desc(fxRates.date)).get();
+  const [latest] = await db.select({ date: fxRates.date }).from(fxRates).orderBy(desc(fxRates.date)).limit(1);
   const today = isoDate(now);
   if (latest?.date === today) return 0;
 
@@ -48,7 +48,7 @@ export async function syncRates({
     }),
   );
   for (let i = 0; i < rows.length; i += 500) {
-    db.insert(fxRates).values(rows.slice(i, i + 500)).onConflictDoNothing().run();
+    await db.insert(fxRates).values(rows.slice(i, i + 500)).onDuplicateKeyUpdate(ignoreDuplicate);
   }
   return rows.length;
 }
@@ -66,8 +66,8 @@ export class Rates {
     }
   }
 
-  static load(): Rates {
-    return new Rates(db.select().from(fxRates).where(eq(fxRates.quote, "CAD")).all());
+  static async load(): Promise<Rates> {
+    return new Rates(await db.select().from(fxRates).where(eq(fxRates.quote, "CAD")));
   }
 
   get latestDate(): string | null {

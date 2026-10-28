@@ -33,21 +33,20 @@ export function weekStart(now = new Date()): string {
  * for how long. Taken on refresh; a later refresh in the same week replaces
  * it, so each week keeps its latest picture.
  */
-export function takeMarketSnapshot(watchId: number, rates: Rates, now = new Date()) {
-  const watch = db.select().from(watchlist).where(eq(watchlist.id, watchId)).get();
+export async function takeMarketSnapshot(watchId: number, rates: Rates, now = new Date()) {
+  const [watch] = await db.select().from(watchlist).where(eq(watchlist.id, watchId)).limit(1);
   if (!watch) return;
 
-  const active = db
+  const active = await db
     .select()
     .from(listings)
-    .where(and(eq(listings.watchId, watchId), eq(listings.status, "active")))
-    .all();
+    .where(and(eq(listings.watchId, watchId), eq(listings.status, "active")));
   const asks = active
     .map((l) => (l.price == null ? null : rates.convert(l.price, l.currency, MARKET_CURRENCY)))
     .filter((v): v is number => v != null);
 
   const since = iso(new Date(now.getTime() - SOLD_WINDOW_DAYS * DAY));
-  const sales = getSoldResults(watch)
+  const sales = (await getSoldResults(watch))
     .filter((r) => r.soldDate >= since)
     .map((r) => rates.convert(r.price, r.currency, MARKET_CURRENCY, r.soldDate))
     .filter((v): v is number => v != null);
@@ -60,10 +59,10 @@ export function takeMarketSnapshot(watchId: number, rates: Rates, now = new Date
     currency: MARKET_CURRENCY,
   } as const;
 
-  db.insert(marketSnapshots)
+  await db
+    .insert(marketSnapshots)
     .values({ watchId, week: weekStart(now), ...values })
-    .onConflictDoUpdate({ target: [marketSnapshots.watchId, marketSnapshots.week], set: values })
-    .run();
+    .onDuplicateKeyUpdate({ set: values });
 }
 
 export interface Point {
@@ -140,23 +139,22 @@ type WatchRef = { id: number; make: string; model: string; yearMin: number; year
  * `variant`, only auction sales of that variant; weekly asking history isn't
  * kept per variant, so it's left out then.
  */
-export function getMarketHistory(
+export async function getMarketHistory(
   watch: WatchRef,
   rates: Rates,
   now = new Date(),
   { variant }: { variant?: string | null } = {},
-): MarketHistory {
+): Promise<MarketHistory> {
   const since = iso(new Date(now.getTime() - HISTORY_DAYS * DAY));
-  const snaps = db
+  const snaps = await db
     .select()
     .from(marketSnapshots)
     .where(and(eq(marketSnapshots.watchId, watch.id), gte(marketSnapshots.week, since)))
-    .orderBy(asc(marketSnapshots.week))
-    .all();
+    .orderBy(asc(marketSnapshots.week));
 
   const byMonth = new Map<string, number[]>();
   const sales: SalePoint[] = [];
-  for (const r of getSoldResults(watch)) {
+  for (const r of await getSoldResults(watch)) {
     if (r.soldDate < since) continue;
     const v = variantOf(r.title);
     if (variant && v !== variant) continue;
@@ -255,26 +253,26 @@ const gapOf = (ask: number | null, sold: number | null) =>
  * momentum, price cuts and asking vs sold. In CAD; `variant` narrows
  * everything except the variant table.
  */
-export function getMarketDetails(
+export async function getMarketDetails(
   watch: WatchRef,
   rates: Rates,
   now = new Date(),
   { variant }: { variant?: string | null } = {},
-): MarketDetails {
+): Promise<MarketDetails> {
   const since = iso(new Date(now.getTime() - HISTORY_DAYS * DAY));
   const daysAgo = (n: number) => iso(new Date(now.getTime() - n * DAY));
 
-  const active = db
-    .select()
-    .from(listings)
-    .where(and(eq(listings.watchId, watch.id), eq(listings.status, "active")))
-    .all()
-    .map((l) => ({
+  const active = (
+    await db
+      .select()
+      .from(listings)
+      .where(and(eq(listings.watchId, watch.id), eq(listings.status, "active")))
+  ).map((l) => ({
       ...l,
       variant: variantOf(l.title, l.trim),
       cad: l.price == null ? null : rates.convert(l.price, l.currency, MARKET_CURRENCY),
     }));
-  const sales = getSoldResults(watch)
+  const sales = (await getSoldResults(watch))
     .filter((r) => r.soldDate >= since)
     .map((r) => ({
       ...r,
@@ -321,7 +319,7 @@ export function getMarketDetails(
   // below the one before it.
   const ids = myActive.map((l) => l.id);
   const snaps = ids.length
-    ? db.select().from(priceSnapshots).where(inArray(priceSnapshots.listingId, ids)).all()
+    ? await db.select().from(priceSnapshots).where(inArray(priceSnapshots.listingId, ids))
     : [];
   const byListing = new Map<number, typeof snaps>();
   for (const s of snaps) byListing.set(s.listingId, [...(byListing.get(s.listingId) ?? []), s]);
