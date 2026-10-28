@@ -124,12 +124,12 @@ base path setting blank or `/`.
    tables on start, then serves the built app. Plain `next start` skips that.
 2. **Environment variables** (set in cPanel, never committed):
    - `AUTO_DEV_API_KEY`, `MARKETCHECK_API_KEY`, `OLD_CARS_DATA_API_KEY`
-   - The database: GoDaddy gives each published app a MySQL database and
-     passes its details in variables. The app reads `DATABASE_URL`
-     (`mysql://user:password@host:3306/database`) or separate variables:
-     `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`,
-     `MYSQL_PASSWORD` (also `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` and
-     similar spellings; see `scripts/db-config.cjs`). `MYSQL_SSL=true` if the
+   - The database: GoDaddy attaches a MySQL database to the app (Settings →
+     Hosted Database) and sets `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`
+     and `DB_PASSWORD` itself; there's nothing to enter. Elsewhere, set
+     `DATABASE_URL` (`mysql://user:password@host:3306/database`) or the same
+     separate variables (`MYSQL_*` spellings work too; see
+     `scripts/db-config.cjs`). `MYSQL_SSL=true` if the
      host requires encrypted connections. Don't keep data in files on the
      server: GoDaddy can reset its file system on restarts and deploys.
    - `APP_PASSWORD`: shows a sign-in page until it's entered; a cookie keeps
