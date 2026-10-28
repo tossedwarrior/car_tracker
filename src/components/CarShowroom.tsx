@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { HomeCar } from "@/lib/home";
 import { sceneMotion } from "@/lib/showroom";
 import { wheelTurn } from "@/lib/wheels";
@@ -23,6 +23,7 @@ function scrollStart(section: HTMLElement, stage: HTMLElement) {
 interface Parts {
   scene: HTMLDivElement | null;
   heading: HTMLDivElement | null;
+  title: HTMLHeadingElement | null;
   car: HTMLDivElement | null;
   wheels: (HTMLDivElement | null)[];
   text: HTMLDivElement | null;
@@ -31,12 +32,14 @@ interface Parts {
 
 /** Space kept between the bottom of a car's name and the top of the car. */
 const HEADING_GAP = 16;
+/** A long name shrinks to fit on one line, down to this share of its size. */
+const MIN_TITLE_SCALE = 0.66;
 
 export function CarShowroom({ cars }: { cars: HomeCar[] }) {
   const section = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const parts = useRef<Parts[]>(
-    cars.map(() => ({ scene: null, heading: null, car: null, wheels: [], text: null, logo: null })),
+    cars.map(() => ({ scene: null, heading: null, title: null, car: null, wheels: [], text: null, logo: null })),
   );
   const [active, setActive] = useState(0);
   const activeRef = useRef(0);
@@ -98,16 +101,33 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
     }
   }, [cars]);
 
-  // A long name wraps onto more lines, so each scene measures where its
-  // heading ends and the car is sized to fit below it (--heading-room in
-  // globals.css). Measured on layout changes, not on every scroll frame.
+  // A long name shrinks to fit on one line, so the car keeps its size. A name
+  // too long even then wraps, and the car is sized to fit below wherever the
+  // heading ends (--heading-room in globals.css). Measured on layout
+  // changes, not on every scroll frame.
   const measureHeadings = useCallback(() => {
     for (const p of parts.current) {
       if (!p.scene || !p.heading) continue;
+      if (p.title) {
+        const t = p.title;
+        t.style.fontSize = "";
+        t.style.whiteSpace = "nowrap";
+        const room = t.clientWidth;
+        const needed = t.scrollWidth;
+        t.style.whiteSpace = "";
+        if (needed > room) {
+          const base = parseFloat(getComputedStyle(t).fontSize);
+          const fit = Math.floor(((base * room) / needed) * 10) / 10;
+          t.style.fontSize = `${Math.max(base * MIN_TITLE_SCALE, fit)}px`;
+        }
+      }
       const bottom = p.heading.offsetTop + p.heading.offsetHeight;
       p.scene.style.setProperty("--heading-room", `${bottom + HEADING_GAP}px`);
     }
   }, []);
+
+  // Before the first paint, so a long name never shows wrapped for a moment.
+  useLayoutEffect(measureHeadings, [measureHeadings]);
 
   useEffect(() => {
     let frame = 0;
@@ -196,7 +216,9 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
               <div ref={(el) => void (parts.current[i].text = el)} className="scene-text">
                 <div ref={(el) => void (parts.current[i].heading = el)} className="scene-heading">
                   <p className="scene-years">{car.years}</p>
-                  <h2 className="scene-title">{car.title}</h2>
+                  <h2 ref={(el) => void (parts.current[i].title = el)} className="scene-title">
+                    {car.title}
+                  </h2>
                 </div>
                 {!photo && (
                   <p className="scene-no-photo">
