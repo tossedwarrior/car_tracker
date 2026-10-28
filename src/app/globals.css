@@ -499,13 +499,7 @@ body:has(.showroom) header.site { position: sticky; top: 0; z-index: 20; }
 .scene-text { z-index: 4; }
 .showroom-switch, .showroom-dots { z-index: 5; }
 .scene {
-  /* The car fills the room between the heading and the ground: --top-room
-     for a one-line name, or below the measured heading (--heading-room, set
-     by CarShowroom) when a long name wraps. */
-  --car-w: min(
-    var(--car-w-max),
-    calc((var(--stage-h) * var(--ground-f) - max(var(--top-room), var(--heading-room, 0px))) / var(--aspect))
-  );
+  --car-w: min(var(--car-w-max), calc((var(--stage-h) * var(--ground-f) - var(--top-room)) / var(--aspect)));
   position: absolute; inset: 0; pointer-events: none;
 }
 .scene-car {
@@ -811,4 +805,34 @@ header.site { position: relative; z-index: 20; }
 }
 @media (prefers-reduced-motion: reduce) {
   .menu-icon path { transition: none; }
+}
+
+/* Phones: room for a car's name on two lines. The ground, car, logo and
+   details all move down by --name-room, the same for every car on a given
+   screen, so nothing changes size between cars. Shorter screens leave less
+   space between name and car, so they shift more (16px to 48px). */
+@media (max-width: 700px) {
+  .showroom { --name-room: clamp(16px, calc(120px - var(--stage-h) * 0.13), 48px); }
+  .showroom-stage {
+    --horizon: calc(var(--stage-h) * 0.3674 + var(--name-room));
+    background: linear-gradient(to bottom, #eef2f3 0, #cbd3d9 var(--horizon), #eef2f3 var(--horizon), #eef2f3 100%);
+  }
+  .showroom-ground { margin-top: var(--name-room); }
+  .scene-car { margin-bottom: calc(-1 * var(--name-room)); }
+  .scene-logo, .scene-details { margin-top: var(--name-room); }
+
+  /* Smaller selectors make the room: the View switch and the car dots. */
+  .view-switch { font-size: 14px; padding: 5px 10px 5px 20px; gap: 8px; }
+  .view-switch button { padding: 6px 13px; }
+  .view-switch img { width: 14px; height: 14px; }
+  .showroom-dots { gap: 20px; bottom: calc(var(--stage-h) * 14 / 773); }
+  .showroom-dot { width: 14px; height: 14px; }
+
+  /* Short screens: what the shift takes from the bottom comes out of the
+     space between the stat groups and above the button. --squeeze is 0 on
+     the 852px-tall frame and grows as the screen gets shorter (--k is the
+     stage height in 773ths of a pixel; see above). */
+  .showroom { --squeeze: max(0px, calc(148px - 161.7 * var(--k))); }
+  .scene-details { gap: calc(31 * var(--k) - var(--squeeze) * 0.4); }
+  .scene .car-stats { row-gap: calc(23 * var(--k) - var(--squeeze) * 0.3); }
 }
