@@ -38,8 +38,17 @@ export function NavLinks({ unseenAlerts }: { unseenAlerts: number }) {
         aria-label={unseenAlerts > 0 ? `Menu, ${unseenAlerts} unread alerts` : "Menu"}
         onClick={() => setOpen((o) => !o)}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/menu.png" width={24} height={24} alt="" />
+        {/* Three lines that draw themselves into an X when open (styles in
+            globals.css), the same icon as on anasashraf.com. */}
+        <svg className="menu-icon" viewBox="290 190 260 260" width="26" height="26" aria-hidden="true">
+          <path className="menu-top" d="M300,220 C300,220 520,220 540,220 C740,220 640,540 520,420 C440,340 300,200 300,200" />
+          <path className="menu-middle" d="M300,320 L540,320" />
+          <path
+            className="menu-bottom"
+            d="M300,210 C300,210 520,210 540,210 C740,210 640,530 520,410 C440,330 300,190 300,190"
+            transform="translate(480, 320) scale(1, -1) translate(-480, -318)"
+          />
+        </svg>
         {unseenAlerts > 0 && <span className="menu-dot" aria-hidden="true" />}
       </button>
       <nav id="main-nav" aria-label="Main" className={open ? "open" : undefined}>

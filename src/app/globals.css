@@ -676,7 +676,20 @@ header.site { position: relative; z-index: 20; }
   .menu-button {
     display: inline-flex; position: relative; padding: 4px; margin: -4px; border: 0; background: none; cursor: pointer;
   }
-  .menu-button img { width: 24px; height: 24px; }
+  /* The menu icon, from anasashraf.com: each path shows only a 240-unit
+     dash. Opening slides the dashes along the paths, so the top and bottom
+     lines curl round into the X and the middle one shrinks away. */
+  .menu-icon { display: block; overflow: visible; }
+  .menu-icon path {
+    fill: none; stroke: var(--fg); stroke-width: 20; stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.5s cubic-bezier(0.25, -0.25, 0.75, 1.25),
+      stroke-dasharray 0.5s cubic-bezier(0.25, -0.25, 0.75, 1.25);
+  }
+  .menu-icon .menu-top, .menu-icon .menu-bottom { stroke-dasharray: 240 950; }
+  .menu-icon .menu-middle { stroke-dasharray: 240 240; }
+  .menu-button[aria-expanded="true"] .menu-top,
+  .menu-button[aria-expanded="true"] .menu-bottom { stroke-dashoffset: -650; }
+  .menu-button[aria-expanded="true"] .menu-middle { stroke-dashoffset: -115; stroke-dasharray: 1 220; }
   .menu-dot {
     position: absolute; top: 2px; right: 0; width: 9px; height: 9px; border-radius: 50%;
     background: #000; box-shadow: 0 0 0 2px #fff;
@@ -789,4 +802,7 @@ header.site { position: relative; z-index: 20; }
   .about ul { padding-left: 22px; }
   .about-sources > div { grid-template-columns: 1fr; min-height: 0; }
   .about ul.about-links { gap: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-icon path { transition: none; }
 }
