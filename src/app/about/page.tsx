@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
-import { isValidSession, SESSION_COOKIE } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/current-user";
 
 export const metadata: Metadata = {
   title: "About · Poster Wall",
@@ -43,7 +42,7 @@ const sources = [
 const external = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 export default async function AboutPage() {
-  const signedIn = await isValidSession((await cookies()).get(SESSION_COOKIE)?.value);
+  const signedIn = !!(await getCurrentUser());
 
   return (
     <article className="about">

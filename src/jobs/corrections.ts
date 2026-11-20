@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { alertsSent, listings, priceSnapshots, watchlist, type Currency } from "@/db/schema";
+import { alertsSent, follows, listings, priceSnapshots, type Currency } from "@/db/schema";
 import type { Rates } from "@/lib/fx";
 import { isUnderTarget } from "@/lib/money";
 import { takeMarketSnapshot } from "./market";
@@ -10,8 +10,8 @@ import { takeMarketSnapshot } from "./market";
  * them wrong. Refreshes keep the correction. Pass null to go back to what
  * the source says (applied on the next refresh).
  *
- * Also re-labels its price history, drops an "under target" alert that no
- * longer holds, and retakes this week's market snapshot.
+ * Also re-labels its price history, drops "under target" alerts that no
+ * longer hold for each follower, and retakes this week's market snapshot.
  */
 export async function correctListing(
   listingId: number,
@@ -38,11 +38,13 @@ export async function correctListing(
   });
 
   const [updated] = await db.select().from(listings).where(eq(listings.id, listingId)).limit(1);
-  const [watch] = await db.select().from(watchlist).where(eq(watchlist.id, updated.watchId)).limit(1);
-  if (!isUnderTarget(rates, updated, watch)) {
+  for (const f of await db.select().from(follows).where(eq(follows.watchId, updated.watchId))) {
+    if (isUnderTarget(rates, updated, f)) continue;
     await db
       .delete(alertsSent)
-      .where(and(eq(alertsSent.listingId, listingId), eq(alertsSent.type, "under_target")));
+      .where(
+        and(eq(alertsSent.userId, f.userId), eq(alertsSent.listingId, listingId), eq(alertsSent.type, "under_target")),
+      );
   }
   await takeMarketSnapshot(updated.watchId, rates, now);
   return updated;

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/current-user";
 import { Icon } from "@/components/Icon";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SortMenu } from "@/components/SortMenu";
@@ -38,7 +39,8 @@ export default async function WatchListingsPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ sort?: string; gone?: string }>;
 }) {
-  const watch = await getWatch(Number((await params).id));
+  const user = await requireUser();
+  const watch = await getWatch(user.id, Number((await params).id));
   if (!watch) notFound();
 
   const query = await searchParams;
@@ -109,7 +111,7 @@ export default async function WatchListingsPage({
             </div>
           </div>
           {rows.map((l) => (
-            <ListingRow key={l.id} listing={l} watch={watch} rates={rates} display={display} />
+            <ListingRow key={l.id} listing={l} watch={watch} rates={rates} display={display} canFix={user.isAdmin} />
           ))}
         </div>
       )}
@@ -122,11 +124,14 @@ function ListingRow({
   watch,
   rates,
   display,
+  canFix,
 }: {
   listing: Listing;
   watch: Watch;
   rates: Rates;
   display: Currency;
+  /** Corrections change the listing for everyone, so only the owner makes them. */
+  canFix: boolean;
 }) {
   const days = daysSince(l.listedAt ?? l.firstSeen);
   const underTarget = l.status === "active" && isUnderTarget(rates, l, watch);
@@ -173,14 +178,16 @@ function ListingRow({
         <span>{days}</span>
       </div>
       <div className="cell-edit" role="cell">
-        <Link
-          href={`/listing/${l.id}/fix`}
-          className="icon-link"
-          title={corrected ? "Corrected by hand. Change the correction" : "Fix this listing's currency or location"}
-          aria-label={corrected ? "Change correction" : "Fix listing"}
-        >
-          <Icon name="edit" />
-        </Link>
+        {canFix && (
+          <Link
+            href={`/listing/${l.id}/fix`}
+            className="icon-link"
+            title={corrected ? "Corrected by hand. Change the correction" : "Fix this listing's currency or location"}
+            aria-label={corrected ? "Change correction" : "Fix listing"}
+          >
+            <Icon name="edit" />
+          </Link>
+        )}
       </div>
     </div>
   );

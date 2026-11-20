@@ -32,7 +32,63 @@ const createdAt = () =>
 /** Images up to MAX_IMAGE_BYTES; MySQL's plain blob stops at 64 KB. */
 const longblob = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "longblob" });
 
-/** The cars I care about. */
+/** People with an account. Signing up and signing in are both by emailed link. */
+export const users = mysqlTable(
+  "users",
+  {
+    id: id(),
+    // Stored lowercased and trimmed (see normalizeEmail).
+    email: varchar("email", { length: 191 }).notNull(),
+    name: varchar("name", { length: 100 }),
+    // OWNER_EMAIL's account: Settings shows API usage, backups and refresh
+    // logs, and only it pulls auction results or fixes listings.
+    isAdmin: boolean("is_admin").notNull().default(false),
+    // Email preferences.
+    listingEmails: boolean("listing_emails").notNull().default(true),
+    monthlyReport: boolean("monthly_report").notNull().default(true),
+    createdAt: createdAt(),
+    lastSignInAt: date("last_sign_in_at"),
+  },
+  (t) => [uniqueIndex("users_email_uq").on(t.email)],
+);
+
+/** One-time sign-in links. Only a hash of the token is kept. */
+export const loginTokens = mysqlTable(
+  "login_tokens",
+  {
+    id: id(),
+    userId: int("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: date("expires_at").notNull(),
+    usedAt: date("used_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("login_tokens_hash_uq").on(t.tokenHash), index("login_tokens_user_idx").on(t.userId)],
+);
+
+/** Signed-in browsers. The cookie holds the token; only its hash is kept. */
+export const sessions = mysqlTable(
+  "sessions",
+  {
+    id: id(),
+    userId: int("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: date("expires_at").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("sessions_hash_uq").on(t.tokenHash), index("sessions_user_idx").on(t.userId)],
+);
+
+/**
+ * A car search: what the sources are asked for. People who add the same car
+ * (same make, model, years, mileage and trim) share one search, so it's
+ * fetched once however many follow it. Each person's target price and notes
+ * are on their follow.
+ */
 export const watchlist = mysqlTable("watchlist", {
   id: id(),
   make: varchar("make", { length: 100 }).notNull(),
@@ -41,11 +97,13 @@ export const watchlist = mysqlTable("watchlist", {
   yearMax: int("year_max").notNull(),
   maxKm: int("max_km"),
   trim: text("trim"),
-  targetPrice: int("target_price"),
-  targetCurrency: varchar("target_currency", { length: 16, enum: currencies })
+  // From before accounts, when the app had one user. Copied to the owner's
+  // follow the first time OWNER_EMAIL signs in (see adoptLegacyData), then unused.
+  legacyTargetPrice: int("target_price"),
+  legacyTargetCurrency: varchar("target_currency", { length: 16, enum: currencies })
     .notNull()
     .default("CAD"),
-  notes: text("notes"),
+  legacyNotes: text("notes"),
   active: boolean("active").notNull().default(true),
   // When this car's listings were last refreshed (ISO timestamp).
   lastRefreshed: date("last_refreshed"),
@@ -53,6 +111,27 @@ export const watchlist = mysqlTable("watchlist", {
   lastSoldPull: date("last_sold_pull"),
   createdAt: createdAt(),
 });
+
+/** A person following a car search, with their own target price and notes. */
+export const follows = mysqlTable(
+  "follows",
+  {
+    id: id(),
+    userId: int("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    watchId: int("watch_id")
+      .notNull()
+      .references(() => watchlist.id, { onDelete: "cascade" }),
+    targetPrice: int("target_price"),
+    targetCurrency: varchar("target_currency", { length: 16, enum: currencies })
+      .notNull()
+      .default("CAD"),
+    notes: text("notes"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("follows_user_watch_uq").on(t.userId, t.watchId), index("follows_watch_idx").on(t.watchId)],
+);
 
 export const listingStatuses = ["active", "gone"] as const;
 export const sellerTypes = ["dealer", "private", "auction", "unknown"] as const;
@@ -169,11 +248,13 @@ export const marketSnapshots = mysqlTable(
 
 export const alertTypes = ["new_listing", "price_drop", "under_target"] as const;
 
-/** So the same alert isn't sent twice. */
+/** Each person's alerts, so the same alert isn't sent to them twice. */
 export const alertsSent = mysqlTable(
   "alerts_sent",
   {
     id: id(),
+    // Null only on alerts from before accounts, until the owner adopts them.
+    userId: int("user_id").references(() => users.id, { onDelete: "cascade" }),
     listingId: int("listing_id")
       .notNull()
       .references(() => listings.id, { onDelete: "cascade" }),
@@ -184,11 +265,10 @@ export const alertsSent = mysqlTable(
     seen: boolean("seen").notNull().default(false),
   },
   (t) => [
-    uniqueIndex("alerts_sent_listing_type_price_uq").on(
-      t.listingId,
-      t.type,
-      t.price,
-    ),
+    uniqueIndex("alerts_sent_user_listing_type_price_uq").on(t.userId, t.listingId, t.type, t.price),
+    index("alerts_sent_user_seen_idx").on(t.userId, t.seen),
+    // Foreign key lookups from listings.
+    index("alerts_sent_listing_idx").on(t.listingId),
   ],
 );
 

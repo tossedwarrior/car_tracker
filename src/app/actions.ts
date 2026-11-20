@@ -1,14 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { requireAdmin, requireUser } from "@/lib/current-user";
 import {
-  createWatch,
-  deleteWatch,
+  addCar,
+  countFollowers,
+  followedIds,
+  getWatch,
   parseWatchForm,
-  updateWatch,
+  unfollow,
+  updateCar,
   type FormErrors,
 } from "@/lib/watchlist";
+
+// Every action checks who's signed in: the proxy only checks that a cookie exists.
 
 export interface WatchFormState {
   errors: FormErrors;
@@ -20,11 +26,15 @@ export async function saveWatch(
   _prev: WatchFormState,
   form: FormData,
 ): Promise<WatchFormState> {
-  const { readImageUpload, saveImage } = await import("@/lib/images");
+  const { getCarImages, readImageUpload, saveCarPhotoSettings, saveImage } = await import("@/lib/images");
+  const user = await requireUser();
   const id = Number(form.get("id")) || null;
-  // A new car needs both images; editing keeps the old ones unless replaced.
-  const logo = await readImageUpload(form.get("logo"), "logo", { required: !id });
-  const photo = await readImageUpload(form.get("photo"), "photo", { required: !id });
+  if (id && !(await getWatch(user.id, id))) notFound();
+  // Images are optional; editing keeps the old ones unless replaced.
+  const logo = await readImageUpload(form.get("logo"), "logo", { required: false });
+  const photo = await readImageUpload(form.get("photo"), "photo", { required: false });
+  const values = () =>
+    Object.fromEntries([...form].flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : [])));
 
   const parsed = parseWatchForm(form);
   const errors = {
@@ -32,31 +42,40 @@ export async function saveWatch(
     ...("error" in logo ? { logo: logo.error } : {}),
     ...("error" in photo ? { photo: photo.error } : {}),
   };
-  if (!parsed.ok || "error" in logo || "error" in photo) {
-    const values = Object.fromEntries(
-      [...form].flatMap(([k, v]) => (typeof v === "string" ? [[k, v]] : [])),
-    );
-    return { errors, values };
+  if (!parsed.ok || "error" in logo || "error" in photo) return { errors, values: values() };
+
+  let watchId: number;
+  if (id) {
+    watchId = await updateCar(user, id, parsed.values);
+  } else {
+    const added = await addCar(user, parsed.values);
+    if ("error" in added) return { errors: { form: added.error }, values: values() };
+    watchId = added.watchId;
   }
 
-  if (id) await updateWatch(id, parsed.values);
-  const watchId = id ?? (await createWatch(parsed.values));
-  if (logo.image) await saveImage(watchId, "logo", logo.image);
-  if (photo.image) await saveImage(watchId, "photo", photo.image);
-  const { parseWheels } = await import("@/lib/wheels");
-  const { saveCarPhotoSettings } = await import("@/lib/images");
-  await saveCarPhotoSettings(watchId, {
-    wheels: parseWheels(String(form.get("wheels") ?? "")),
-    facesRight: form.get("facesRight") === "on",
-  });
+  // A car's images are shared by everyone who follows it. Only the owner, or
+  // someone who's its only follower, can replace them; anyone can add a
+  // missing one.
+  const current = await getCarImages(watchId);
+  const mayReplace = user.isAdmin || (await countFollowers(watchId)) === 1;
+  if (logo.image && (mayReplace || !current.logo)) await saveImage(watchId, "logo", logo.image);
+  if (photo.image && (mayReplace || !current.photo)) await saveImage(watchId, "photo", photo.image);
+  if (mayReplace || (photo.image && !current.photo)) {
+    const { parseWheels } = await import("@/lib/wheels");
+    await saveCarPhotoSettings(watchId, {
+      wheels: parseWheels(String(form.get("wheels") ?? "")),
+      facesRight: form.get("facesRight") === "on",
+    });
+  }
 
   revalidatePath("/");
   redirect(`/watch/${watchId}`);
 }
 
 export async function removeWatch(form: FormData) {
+  const user = await requireUser();
   const id = Number(form.get("id"));
-  if (id) await deleteWatch(id);
+  if (id) await unfollow(user.id, id);
   revalidatePath("/");
   redirect("/");
 }
@@ -69,8 +88,13 @@ export interface RefreshState {
 
 export async function refreshListings(_prev: RefreshState, form: FormData): Promise<RefreshState> {
   const { runRefresh } = await import("@/jobs/refresh");
+  const user = await requireUser();
+  // One car, or all of this person's cars; never anyone else's.
   const watchId = Number(form.get("watchId")) || null;
-  const result = await runRefresh({ watchIds: watchId ? [watchId] : undefined });
+  const mine = await followedIds(user.id);
+  const watchIds = watchId ? mine.filter((id) => id === watchId) : mine;
+  if (watchIds.length === 0) return { status: "ok", log: ["No cars to refresh."], calls: 0 };
+  const result = await runRefresh({ watchIds });
   revalidatePath("/", "layout");
   return { status: result.status, log: result.log, calls: result.calls };
 }
@@ -83,6 +107,8 @@ export interface SoldPullState {
 export async function pullSold(_prev: SoldPullState, form: FormData): Promise<SoldPullState> {
   const { pullSoldResults } = await import("@/jobs/sold");
   const { syncRates } = await import("@/lib/fx");
+  // Old Cars Data allows 10 queries a month for the whole site: the owner's call.
+  await requireAdmin();
   const watchId = Number(form.get("watchId"));
   // Sales are converted at their sale-date rate; keep rates current.
   await syncRates().catch(() => {});
@@ -112,13 +138,15 @@ export async function setDisplayCurrency(form: FormData) {
 
 export async function markAlertsSeen() {
   const { markAllAlertsSeen } = await import("@/jobs/alerts");
-  await markAllAlertsSeen();
+  await markAllAlertsSeen((await requireUser()).id);
   revalidatePath("/", "layout");
 }
 
 export async function fixListing(form: FormData) {
   const { correctListing } = await import("@/jobs/corrections");
   const { Rates } = await import("@/lib/fx");
+  // Corrections change a listing for everyone who follows the car.
+  await requireAdmin();
   const id = Number(form.get("id"));
   const currency = String(form.get("currency") ?? "");
   const location = String(form.get("location") ?? "").trim();
@@ -144,4 +172,30 @@ export async function setHomeView(form: FormData) {
   revalidatePath("/");
   // Start the new view from the top.
   redirect("/");
+}
+
+export interface PreferencesState {
+  saved?: boolean;
+}
+
+export async function savePreferences(_prev: PreferencesState, form: FormData): Promise<PreferencesState> {
+  const { updatePreferences } = await import("@/lib/users");
+  const user = await requireUser();
+  await updatePreferences(user.id, {
+    name: String(form.get("name") ?? "").trim().slice(0, 100) || null,
+    listingEmails: form.get("listingEmails") === "on",
+    monthlyReport: form.get("monthlyReport") === "on",
+  });
+  revalidatePath("/settings");
+  return { saved: true };
+}
+
+export async function deleteAccount() {
+  const { cookies } = await import("next/headers");
+  const { deleteUser } = await import("@/lib/users");
+  const { SESSION_COOKIE } = await import("@/lib/auth");
+  const user = await requireUser();
+  await deleteUser(user.id);
+  (await cookies()).delete(SESSION_COOKIE);
+  redirect("/login");
 }

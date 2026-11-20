@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { insertRow } from "@/test/db";
-import { alertsSent, listings, priceSnapshots, watchlist } from "@/db/schema";
+import { followedWatch } from "@/test/db";
+import { alertsSent, listings, priceSnapshots } from "@/db/schema";
 import { Rates } from "@/lib/fx";
 import type { NormalizedListing } from "@/sources/types";
 import { recordAlerts } from "./alerts";
@@ -35,7 +35,7 @@ const hgregoire = (price = 239000): NormalizedListing => ({
 
 describe("correctListing", () => {
   it("fixes the currency and location, drops a wrong under-target alert, and survives refreshes", async () => {
-    const watchId = (await insertRow(watchlist, { make: "Ferrari", model: "458 Italia", yearMin: 2011, yearMax: 2015, targetPrice: 250000, targetCurrency: "CAD" })).id;
+    const { watchId } = await followedWatch({ targetPrice: 250000 });
     const refresh = async (date: string, price?: number) => {
       const { addedIds } = await recordListings({ watchId, source: "marketcheck", found: [hgregoire(price)], date, complete: true });
       return await recordAlerts({ watchId, source: "marketcheck", date, rates, newListingIds: addedIds, firstSearch: false });

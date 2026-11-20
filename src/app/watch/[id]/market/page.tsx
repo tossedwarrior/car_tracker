@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/current-user";
 import { MarketCharts, type ChartPoint, type SaleDot } from "@/components/MarketCharts";
 import { RefreshButton } from "@/components/RefreshButton";
 import { SoldPullButton } from "@/components/SoldPullButton";
@@ -35,7 +36,8 @@ export default async function MarketPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ variant?: string }>;
 }) {
-  const watch = await getWatch(Number((await params).id));
+  const user = await requireUser();
+  const watch = await getWatch(user.id, Number((await params).id));
   if (!watch) notFound();
 
   const display = await getDisplayCurrency();

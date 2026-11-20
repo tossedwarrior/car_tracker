@@ -18,10 +18,13 @@ const IMAGE_ACCEPT = ".png,.jpg,.jpeg,.webp,.svg";
 export function WatchForm({
   watch,
   images = {},
+  lockedImages = { logo: false, photo: false },
 }: {
   watch?: Watch;
   /** Current images when editing. */
   images?: { logo?: string; photo?: string; wheels?: WheelSpec | null; facesRight?: boolean };
+  /** Images this person can't replace, because others follow the car too. */
+  lockedImages?: { logo: boolean; photo: boolean };
 }) {
   // The car photo being shown: a newly chosen file, else the current one.
   const [photoSrc, setPhotoSrc] = useState<string | undefined>(images.photo);
@@ -43,6 +46,11 @@ export function WatchForm({
       }}
     >
       {watch && <input type="hidden" name="id" value={watch.id} />}
+      {e.form && (
+        <p className="error wide" role="alert">
+          {e.form}
+        </p>
+      )}
 
       <Field label="Make" required name="make" error={e.make} defaultValue={v("make")} placeholder="Ferrari" />
       <Field label="Model" required name="model" error={e.model} defaultValue={v("model")} placeholder="458 Italia" />
@@ -66,26 +74,30 @@ export function WatchForm({
         <textarea className="pill-input pill-textarea" name="notes" defaultValue={String(v("notes") ?? "")} placeholder="Manual cars only" />
       </label>
 
-      <ImageField
-        name="logo"
-        label="Brand logo"
-        prompt="Upload logo"
-        required={adding}
-        current={images.logo}
-        error={e.logo}
-        hint="Transparent background, cropped tight. SVG, or PNG at least 1600 px wide."
-      />
-      <ImageField
-        name="photo"
-        label="Car photo"
-        prompt="Upload photo"
-        required={adding}
-        current={images.photo}
-        error={e.photo}
-        hint="Side-on, background removed, cropped tight to the car, at least 2000 px wide. Facing left is best."
-        onPreview={(url) => setPhotoSrc(url ?? images.photo)}
-      />
-      {photoSrc && (
+      {!lockedImages.logo && (
+        <ImageField
+          name="logo"
+          label="Brand logo"
+          prompt="Upload logo"
+          required={false}
+          current={images.logo}
+          error={e.logo}
+          hint="Optional. Transparent background, cropped tight. SVG, or PNG at least 1600 px wide."
+        />
+      )}
+      {!lockedImages.photo && (
+        <ImageField
+          name="photo"
+          label="Car photo"
+          prompt="Upload photo"
+          required={false}
+          current={images.photo}
+          error={e.photo}
+          hint="Optional. Side-on, background removed, cropped tight to the car, at least 2000 px wide. Facing left is best."
+          onPreview={(url) => setPhotoSrc(url ?? images.photo)}
+        />
+      )}
+      {photoSrc && !lockedImages.photo && (
         <div className="wide">
           <WheelMarker
             src={photoSrc}
