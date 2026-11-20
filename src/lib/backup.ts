@@ -6,11 +6,13 @@ import {
   alertsSent,
   apiUsage,
   checkRuns,
+  follows,
   fxRates,
   listings,
   marketSnapshots,
   priceSnapshots,
   soldResults,
+  users,
   watchImages,
   watchlist,
 } from "@/db/schema";
@@ -21,9 +23,16 @@ import {
 
 const FORMAT = 1;
 
-/** Every table, parents before the tables that point at them. */
+/**
+ * Every table, parents before the tables that point at them. Sessions and
+ * sign-in links stay out: restoring signs everyone out, and they sign in again.
+ * A backup from before accounts has no users or follows; the owner takes its
+ * cars over on their next sign-in (adoptLegacyData).
+ */
 export const BACKUP_TABLES = {
+  users,
   watchlist,
+  follows,
   listings,
   priceSnapshots,
   soldResults,
@@ -127,6 +136,7 @@ export async function restoreBackup(bytes: Buffer): Promise<BackupCounts> {
 export function describeCounts(c: BackupCounts): string {
   const n = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString("en-CA")} ${count === 1 ? one : many}`;
   return [
+    n(c.users, "account"),
     n(c.watchlist, "car"),
     n(c.listings, "listing"),
     n(c.soldResults, "auction result"),

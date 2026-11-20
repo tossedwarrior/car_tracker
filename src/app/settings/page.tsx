@@ -1,9 +1,11 @@
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { checkRuns, watchlist } from "@/db/schema";
+import { AccountSettings } from "@/components/AccountSettings";
 import { BackupRestore } from "@/components/BackupRestore";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { callsPerWatch } from "@/jobs/budget";
+import { requireUser } from "@/lib/current-user";
 import { getDisplayCurrency } from "@/lib/display-currency";
 import { allSources, hasApiKey } from "@/sources";
 import { getUsage, monthKey } from "@/sources/usage";
@@ -11,6 +13,7 @@ import { getUsage, monthKey } from "@/sources/usage";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  const user = await requireUser();
   const currency = await getDisplayCurrency();
   const now = new Date();
   const month = new Date(`${monthKey(now)}-01T12:00:00Z`).toLocaleDateString("en-CA", {
@@ -46,81 +49,97 @@ export default async function SettingsPage() {
         </p>
       </section>
 
-      <section>
-        <h2>API calls in {month}</h2>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Source</th>
-                <th>Used this month</th>
-                <th className="num">Calls per car, at most</th>
-                <th>API key</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map(({ s, used, perCar, hasKey }) => (
-                <tr key={s.id}>
-                  <td className="strong">{s.label}</td>
-                  <td>
-                    <div className="meter" role="meter" aria-valuenow={used} aria-valuemin={0} aria-valuemax={s.monthlyCallLimit}>
-                      <span style={{ width: `${Math.min(100, (used / s.monthlyCallLimit) * 100)}%` }} />
-                    </div>
-                    <span className="small">
-                      {used.toLocaleString()} of {s.monthlyCallLimit.toLocaleString()} free
-                    </span>
-                  </td>
-                  <td className="num">
-                    {perCar}
-                    <div className="muted small">
-                      {s.kind === "listings"
-                        ? `per refresh · ${perCar * watchCount} for all ${watchCount}`
-                        : "per sold-prices update"}
-                    </div>
-                  </td>
-                  <td>{hasKey ? "Set" : <span className="error">Missing ({s.apiKeyEnv})</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="muted small">
-          Nothing runs on its own: listings update when you press Refresh, and auction results when
-          you press Update sold prices on a car. Each source stops before its free limit. Auto.dev
-          fetches up to 5 pages of 20 per car; MarketCheck searches 100 miles around Toronto,
-          Montreal, Vancouver and Calgary (one call each, more if a city has over 50); Old Cars Data
-          returns the latest 20 sold auctions per update on the free plan.
-        </p>
-      </section>
+      <AccountSettings
+        email={user.email}
+        name={user.name}
+        listingEmails={user.listingEmails}
+        monthlyReport={user.monthlyReport}
+      />
 
-      <section>
-        <h2>Backup &amp; restore</h2>
-        <p className="muted small">
-          A backup is one file with everything: your cars, listings, price history, auction results,
-          photos and logos. Use it to keep a copy, or to move your data between this site and another
-          copy of the app (like the one on your Mac).
-        </p>
-        <BackupRestore />
-      </section>
+      {user.isAdmin && (
+        <>
+          <section>
+            <h2>API calls in {month}</h2>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Used this month</th>
+                    <th className="num">Calls per car, at most</th>
+                    <th>API key</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sources.map(({ s, used, perCar, hasKey }) => (
+                    <tr key={s.id}>
+                      <td className="strong">{s.label}</td>
+                      <td>
+                        <div
+                          className="meter"
+                          role="meter"
+                          aria-valuenow={used}
+                          aria-valuemin={0}
+                          aria-valuemax={s.monthlyCallLimit}
+                        >
+                          <span style={{ width: `${Math.min(100, (used / s.monthlyCallLimit) * 100)}%` }} />
+                        </div>
+                        <span className="small">
+                          {used.toLocaleString()} of {s.monthlyCallLimit.toLocaleString()} free
+                        </span>
+                      </td>
+                      <td className="num">
+                        {perCar}
+                        <div className="muted small">
+                          {s.kind === "listings"
+                            ? `per refresh · ${perCar * watchCount} for all ${watchCount}`
+                            : "per sold-prices update"}
+                        </div>
+                      </td>
+                      <td>{hasKey ? "Set" : <span className="error">Missing ({s.apiKeyEnv})</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="muted small">
+              Nothing runs on its own: listings update when you press Refresh, and auction results when you press Update
+              sold prices on a car. Each source stops before its free limit. Auto.dev fetches up to 5 pages of 20 per
+              car; MarketCheck searches 100 miles around Toronto, Montreal, Vancouver and Calgary (one call each, more
+              if a city has over 50); Old Cars Data returns the latest 20 sold auctions per update on the free plan.
+            </p>
+          </section>
 
-      <section>
-        <h2>Recent refreshes</h2>
-        {runs.length === 0 ? (
-          <p className="muted">None yet.</p>
-        ) : (
-          <div className="runs">
-            {runs.map((r) => (
-              <details key={r.id} open={r.id === runs[0].id}>
-                <summary>
-                  <span className={`status ${r.status}`}>{r.status}</span>{" "}
-                  {new Date(r.startedAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
-                </summary>
-                <pre className="log">{r.log || "…"}</pre>
-              </details>
-            ))}
-          </div>
-        )}
-      </section>
+          <section>
+            <h2>Backup &amp; restore</h2>
+            <p className="muted small">
+              A backup is one file with everything: accounts, cars, listings, price history, auction results, photos and
+              logos. Use it to keep a copy, or to move your data between this site and another copy of the app (like the
+              one on your Mac).
+            </p>
+            <BackupRestore />
+          </section>
+
+          <section>
+            <h2>Recent refreshes</h2>
+            {runs.length === 0 ? (
+              <p className="muted">None yet.</p>
+            ) : (
+              <div className="runs">
+                {runs.map((r) => (
+                  <details key={r.id} open={r.id === runs[0].id}>
+                    <summary>
+                      <span className={`status ${r.status}`}>{r.status}</span>{" "}
+                      {new Date(r.startedAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
+                    </summary>
+                    <pre className="log">{r.log || "…"}</pre>
+                  </details>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </>
   );
 }

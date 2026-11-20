@@ -1,6 +1,27 @@
 # Car Price Tracker
 
-Personal app that tracks asking and sold prices for watched exotics. See [SPEC.md](SPEC.md).
+Tracks asking and sold prices for exotic cars. People sign up with their
+email, follow the cars they want, and see every listing, auction results and
+where prices are heading. See [SPEC.md](SPEC.md), and
+[docs/CUSTOMERIO_PLAN.md](docs/CUSTOMERIO_PLAN.md) for the email plan.
+
+## Accounts
+
+- **Sign up and sign in are the same:** enter an email, get a one-time link
+  (good for 30 minutes), open it and press Continue. A session cookie keeps
+  that browser signed in for 30 days. Until an email service is connected, the
+  link is shown on the page and written to the server log on a development
+  server only; production sends nothing yet.
+- **Following cars:** each person keeps their own list, with their own target
+  price and notes. People who add the same car (same make, model, years,
+  mileage and trim) share one search, so it's fetched once. Each person can
+  follow up to `MAX_CARS_PER_USER` cars (default 5). A car nobody follows any
+  more is deleted with its listings.
+- **The owner** (`OWNER_EMAIL`) has no car limit, sees API usage, Backup &
+  restore and refresh logs in Settings, and is the only one who can pull
+  auction results (Old Cars Data's 10 a month are shared) or fix a listing.
+  The first time the owner signs in, they take over the cars and alerts from
+  before accounts, with the old target prices and notes.
 
 ## Setup
 
@@ -72,9 +93,9 @@ the car form: see [docs/CAR_PHOTOS.md](docs/CAR_PHOTOS.md).
   Rising/flat/cooling = typical price up more than 3% / within 3% / down more
   than 3% over 3 months, from asking prices once there are 3 months of them,
   auction sales until then.
-- **Alerts** (in the app, with an unread count in the header): new listings
-  (not on a source's first search for a car), price drops, and cars at or under
-  the target price. Checked on refresh.
+- **Alerts** (in the app, with an unread count in the header), for each person
+  following the car: new listings (not on a source's first search for a car),
+  price drops, and cars at or under their target price. Checked on refresh.
 - **Fixing a listing**: sources can get a currency or location wrong (MarketCheck
   reports every Canadian dealer's price as CAD, even from a U.S. branch). The
   **Fix** link on a listing corrects them; refreshes keep the correction, and
@@ -132,10 +153,13 @@ base path setting blank or `/`.
      `scripts/db-config.cjs`). `MYSQL_SSL=true` if the
      host requires encrypted connections. Don't keep data in files on the
      server: GoDaddy can reset its file system on restarts and deploys.
-   - `APP_PASSWORD`: shows a sign-in page until it's entered; a cookie keeps
-     that browser signed in for 30 days. Signed-out visitors get the sign-in
-     page with status 200, so host health checks pass. Leave it unset only if
-     the site isn't reachable from the internet.
+   - `APP_URL`: the site's address (e.g. `https://example.com`), for links in
+     emails. Required in production; sign-in links are never built from the
+     request's Host header.
+   - `OWNER_EMAIL`: your address; that account is the owner (see
+     [Accounts](#accounts)). `MAX_CARS_PER_USER` (optional, default 5).
+   - Signed-out visitors get the sign-in page with status 200, so host health
+     checks pass. `APP_PASSWORD` is no longer used.
    - Don't set `NODE_ENV`: `npm install` would then skip the build tools.
 3. Builds: `npm start` installs dependencies if they're missing and builds the
    app if there's no build of the current code (it fingerprints the source),

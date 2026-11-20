@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { signOut } from "@/app/login/actions";
 
 /**
  * Header links; the current page's link is bold. On phones they fold into a
@@ -69,6 +70,11 @@ export function NavLinks({ unseenAlerts }: { unseenAlerts: number }) {
         <Link href="/watch/new" aria-current={current("/watch/new")}>
           Add a car
         </Link>
+        <form action={signOut} className="nav-form">
+          <button type="submit" className="nav-button">
+            Sign out
+          </button>
+        </form>
       </nav>
     </div>
   );

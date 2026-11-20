@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { fixListing } from "@/app/actions";
 import { db } from "@/db";
 import { currencies, listings } from "@/db/schema";
+import { requireAdmin } from "@/lib/current-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function FixListingPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const [l] = await db.select().from(listings).where(eq(listings.id, Number((await params).id))).limit(1);
   if (!l) notFound();
 

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/current-user";
 import { Money } from "@/components/Money";
 import { SoldPullButton } from "@/components/SoldPullButton";
 import { updatedText, WatchHeader } from "@/components/WatchHeader";
@@ -14,7 +15,8 @@ import { getUsage } from "@/sources/usage";
 export const dynamic = "force-dynamic";
 
 export default async function SoldPricesPage({ params }: { params: Promise<{ id: string }> }) {
-  const watch = await getWatch(Number((await params).id));
+  const user = await requireUser();
+  const watch = await getWatch(user.id, Number((await params).id));
   if (!watch) notFound();
 
   const display = await getDisplayCurrency();
@@ -46,10 +48,10 @@ export default async function SoldPricesPage({ params }: { params: Promise<{ id:
         forSaleCount={forSale.length}
         soldCount={sold.length}
         updated={updatedText("Sold prices updated", watch.lastSoldPull, "Sold prices not pulled yet")}
-        action={keySet && <SoldPullButton watchId={watch.id} callsLeft={callsLeft} />}
+        action={keySet && user.isAdmin && <SoldPullButton watchId={watch.id} callsLeft={callsLeft} />}
       />
 
-      {!keySet && (
+      {!keySet && user.isAdmin && (
         <p className="notice">
           Add <code>{source.apiKeyEnv}</code> to <code>.env</code> to pull auction results from{" "}
           {source.label}.
@@ -91,9 +93,9 @@ export default async function SoldPricesPage({ params }: { params: Promise<{ id:
         <div className="empty">
           <p>No auction results yet.</p>
           <p className="muted">
-            {keySet
+            {keySet && user.isAdmin
               ? "Press Update sold prices to pull recent sales of this model."
-              : "Auction results appear here once Old Cars Data is set up."}
+              : "Recent auction sales of this model will show here once they're pulled."}
           </p>
         </div>
       ) : (

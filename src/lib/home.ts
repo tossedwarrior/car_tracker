@@ -22,11 +22,16 @@ export interface HomeCar {
   images: CarImages;
 }
 
-/** Everything the home page shows for each watched car, in watchlist order. */
-export async function getHomeCars(rates: Rates, display: Currency, now = new Date()): Promise<HomeCar[]> {
+/** Everything the home page shows for each car someone follows, in watchlist order. */
+export async function getHomeCars(
+  userId: number,
+  rates: Rates,
+  display: Currency,
+  now = new Date(),
+): Promise<HomeCar[]> {
   const since = new Date(now.getTime() - NEW_DAYS * 86_400_000).toISOString().slice(0, 10);
   const cars: HomeCar[] = [];
-  for (const w of await listWatches()) {
+  for (const w of await listWatches(userId)) {
     const [{ n: newListings }] = await db
       .select({ n: sql<number>`count(*)` })
       .from(listings)

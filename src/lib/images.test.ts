@@ -1,8 +1,11 @@
+import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { insertRow } from "@/test/db";
+import { SESSION_COOKIE } from "@/lib/auth";
+import { insertRow, makeUser } from "@/test/db";
 import { watchlist } from "@/db/schema";
 import { GET } from "@/app/api/watch/[id]/image/[kind]/route";
+import { createSession } from "./users";
 import { getImage, imageVersions, MAX_IMAGE_BYTES, readImageUpload, saveImage, sniffImageType } from "./images";
 
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -51,16 +54,21 @@ describe("saving and serving images", () => {
     expect(await getImage(id, "logo")).toMatchObject({ contentType: "image/jpeg", fileName: "b.jpg" });
     expect(await imageVersions(id)).toEqual({ logo: "2026-10-27T11:00:00.000Z" });
 
-    const res = await GET(new Request("http://x"), { params: Promise.resolve({ id: String(id), kind: "logo" }) });
+    const session = await createSession((await makeUser()).id);
+    const signedIn = () => new NextRequest("http://x", { headers: { cookie: `${SESSION_COOKIE}=${session}` } });
+    const signedOut = await GET(new NextRequest("http://x"), { params: Promise.resolve({ id: String(id), kind: "logo" }) });
+    expect(signedOut.status).toBe(401);
+
+    const res = await GET(signedIn(), { params: Promise.resolve({ id: String(id), kind: "logo" }) });
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/jpeg");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("content-security-policy")).toContain("sandbox");
     expect(new Uint8Array(await res.arrayBuffer())).toEqual(JPEG);
 
-    const missing = await GET(new Request("http://x"), { params: Promise.resolve({ id: String(id), kind: "photo" }) });
+    const missing = await GET(signedIn(), { params: Promise.resolve({ id: String(id), kind: "photo" }) });
     expect(missing.status).toBe(404);
-    const bad = await GET(new Request("http://x"), { params: Promise.resolve({ id: String(id), kind: "other" }) });
+    const bad = await GET(signedIn(), { params: Promise.resolve({ id: String(id), kind: "other" }) });
     expect(bad.status).toBe(404);
   });
 });

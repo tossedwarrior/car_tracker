@@ -7,7 +7,9 @@ export function DeleteWatchButton({ id, title }: { id: number; title: string }) 
     <form
       action={removeWatch}
       onSubmit={(e) => {
-        if (!confirm(`Remove ${title} and all its saved listings and history?`)) e.preventDefault();
+        if (!confirm(`Remove ${title} from your watchlist? Your target price, notes and alerts for it go too.`)) {
+          e.preventDefault();
+        }
       }}
     >
       <input type="hidden" name="id" value={id} />

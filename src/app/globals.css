@@ -53,6 +53,10 @@ header.site .brand { font-size: 24px; font-weight: 700; text-decoration: none; w
 header.site nav { display: flex; align-items: center; gap: 32px; }
 header.site nav a { font-size: 20px; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; }
 header.site nav a:hover { text-decoration: underline; text-underline-offset: 4px; }
+/* Sign out: a form button that looks like the links beside it. */
+.nav-form { display: contents; }
+.nav-button { font: inherit; font-size: 20px; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
+.nav-button:hover { text-decoration: underline; text-underline-offset: 4px; }
 
 main { max-width: var(--page-max); margin: 0 auto; padding: 24px var(--gutter) 96px; }
 
@@ -211,6 +215,11 @@ tr.unseen td { background: #fafafa; }
 .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .login { max-width: 420px; margin: 64px auto; }
 .login h1 { margin-bottom: 12px; }
+.login .form { margin-top: 32px; }
+.signin-sent { margin-top: 32px; }
+.signin-sent p { margin: 6px 0; }
+.signin-sent .strong { font-size: 24px; font-weight: 700; }
+.signin-sent .notice { margin-top: 24px; }
 
 /* Settings and refresh results */
 .meter { width: 160px; height: 4px; background: var(--pill-active); overflow: hidden; margin: 6px 0 6px; }
@@ -318,7 +327,7 @@ tr.unseen td { background: #fafafa; }
   header.site .inner { min-height: 60px; padding: 0 16px; gap: 16px; }
   header.site .brand { font-size: 20px; }
   header.site nav { gap: 16px; }
-  header.site nav a { font-size: 16px; }
+  header.site nav a, .nav-button { font-size: 16px; }
   .nav-count { min-width: 22px; height: 22px; font-size: 12px; }
 
   .car-head { grid-template-columns: 1fr; }
@@ -379,6 +388,8 @@ header.site nav a[aria-current="page"] { font-weight: 700; }
 
 .form-page { max-width: 712px; margin: 0 auto; }
 .form-page > h1 { margin: 24px 0 61px; }
+.form-page > h1:has(+ .form-intro) { margin-bottom: 16px; }
+.form-intro { margin: 0 0 48px; }
 .car-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px 24px; }
 .car-form .wide { grid-column: 1 / -1; }
 .pill-field { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -700,7 +711,7 @@ header.site { position: relative; z-index: 20; }
     position: absolute; left: 0; right: 0; top: 100%; padding: 12px 30px 32px;
     background: #fff; box-shadow: 0 16px 24px rgb(0 0 0 / 0.06);
   }
-  header.site nav.open a { font-size: 24px; }
+  header.site nav.open a, header.site nav.open .nav-button { font-size: 24px; }
 
   /* Expanded view */
   .showroom {
@@ -841,3 +852,8 @@ header.site { position: relative; z-index: 20; }
   .scene-details { gap: calc(31 * var(--k) - var(--squeeze) * 0.4); }
   .scene .car-stats { row-gap: calc(23 * var(--k) - var(--squeeze) * 0.3); }
 }
+
+/* Settings: email preferences */
+.checks { border: 0; padding: 0; margin: 0; display: grid; gap: 12px; }
+.checks legend { font-family: var(--font-serif), Georgia, serif; font-size: 18px; margin-bottom: 12px; padding: 0; }
+.checks label { display: flex; gap: 10px; align-items: baseline; }
