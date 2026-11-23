@@ -104,7 +104,12 @@ npm run find-photos -- --force 3          # look again for car #3, replacing its
 npm run find-photos -- --save-to /tmp/p 3 # also keep every suggestion, to see why one was skipped
 ```
 
-Uploading a photo in the car form still works, and replaces a found one.
+Uploading a photo in the car form still works, and replaces a found one. The
+form prepares it straight away: a simple background (a studio, or a wall and
+floor) is removed by colour, then trimmed with U²-Netp, a 4.6 MB background
+model in `models/` run by onnxruntime-node (about 0.2 s and 0.5 GB a photo;
+see `models/README.md`). Without the model (`CAR_PHOTO_MODEL=off`, or a host
+where it can't load) photos are prepared by colour alone.
 
 A car with no photo (none found, or no CarsXE key) drives in as an outline
 of its body style instead: coupe, convertible, SUV or sedan, read from its

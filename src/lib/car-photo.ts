@@ -342,99 +342,351 @@ export async function prepareCarPhoto(bytes: Buffer): Promise<PreparedPhoto | { 
 
 // ---------- Uploaded photos ----------
 
-/** Colour distance between two pixels (RGB, 0–441). */
-const dist = (d: Buffer, i: number, r: number, g: number, b: number) =>
-  Math.hypot(d[i] - r, d[i + 1] - g, d[i + 2] - b);
+/** Up to `k` main colours of some pixels (k-means), each with its share of them. */
+export function mainColours(pixels: number[][], k = 4): Array<{ rgb: number[]; share: number }> {
+  if (!pixels.length) return [];
+  // Start from spread-out brightnesses, so the result is the same every time.
+  const byLight = [...pixels].sort((a, b) => a[0] + a[1] + a[2] - (b[0] + b[1] + b[2]));
+  let centres = Array.from({ length: k }, (_, i) => [...byLight[Math.floor(((i + 0.5) / k) * byLight.length)]]);
+  let counts: number[] = [];
+  for (let round = 0; round < 12; round++) {
+    const sums = centres.map(() => [0, 0, 0]);
+    counts = centres.map(() => 0);
+    for (const p of pixels) {
+      const c = nearest(centres, p[0], p[1], p[2]).index;
+      sums[c][0] += p[0];
+      sums[c][1] += p[1];
+      sums[c][2] += p[2];
+      counts[c]++;
+    }
+    centres = centres.map((c, i) => (counts[i] ? sums[i].map((v) => v / counts[i]) : c));
+  }
+  return centres.map((rgb, i) => ({ rgb, share: counts[i] / pixels.length })).filter((c) => c.share > 0);
+}
+
+/** The closest of some colours to a pixel, and how close (RGB distance, 0–441). */
+function nearest(colours: number[][], r: number, g: number, b: number) {
+  let index = 0;
+  let distance = Infinity;
+  for (let i = 0; i < colours.length; i++) {
+    const c = colours[i];
+    const d = Math.hypot(r - c[0], g - c[1], b - c[2]);
+    if (d < distance) (distance = d), (index = i);
+  }
+  return { index, distance };
+}
 
 /**
- * Make a plain background see-through: the colour most of the border shares
- * (white, grey, a studio backdrop), flooded in from the edges so the car
- * itself is left alone even where it's a similar colour. Follows gentle
- * gradients, and softens the car's outline by a pixel. Returns false, and
- * changes nothing, when the background isn't plain enough to tell apart.
+ * Make the background see-through when it's simple enough to tell from the
+ * car: a few colours around the edge of the photo (a white studio; a grey
+ * wall above a pale floor), however textured. Works out which parts are car
+ * on a smoothed copy about 1000 px wide, so texture doesn't count: learns the
+ * background's colours from the photo's edge, floods in from the edges over
+ * anything close to them (following gentle gradients), drops whatever the
+ * background model (`model`, a full-size mask) is sure isn't car, and keeps
+ * the car's own shape. Back at full size, the outline's see-through-ness is
+ * read from each pixel's own colour, so the edge follows the paint, not a
+ * scaled-up staircase. Returns false, and changes nothing, when the
+ * background is too varied or what's left doesn't look like a car side-on.
  */
-export function removePlainBackground(raw: Raw): boolean {
+export async function removeBackground(raw: Raw, model: Buffer | null = null): Promise<boolean> {
   const { width: W, height: H, channels: C } = raw.info;
-  const d = raw.data;
-  const at = (x: number, y: number) => (y * W + x) * C;
+  const scale = Math.min(1, 1000 / W);
+  const w = Math.max(8, Math.round(W * scale));
+  const h = Math.max(8, Math.round(H * scale));
+  const d = await sharp(raw.data, { raw: { width: W, height: H, channels: C } })
+    .resize(w, h)
+    .blur(1.5)
+    .removeAlpha()
+    .raw()
+    .toBuffer();
+  const px = (p: number) => [d[p * 3], d[p * 3 + 1], d[p * 3 + 2]];
 
-  // The background's colour: the median of the border's.
+  // The background's colours, from the edge of the photo.
   const border: number[] = [];
-  for (let x = 0; x < W; x++) border.push(at(x, 0), at(x, H - 1));
-  for (let y = 0; y < H; y++) border.push(at(0, y), at(W - 1, y));
-  const median = (k: number) => border.map((i) => d[i + k]).sort((a, b) => a - b)[border.length >> 1];
-  const [r, g, b] = [median(0), median(1), median(2)];
-  const near = border.filter((i) => dist(d, i, r, g, b) < 40).length;
-  if (near / border.length < 0.8) return false; // a busy background: a street, a showroom
+  for (let x = 0; x < w; x++) border.push(x, (h - 1) * w + x);
+  for (let y = 1; y < h - 1; y++) border.push(y * w, y * w + w - 1);
+  const colours = mainColours(border.map(px), 4).filter((c) => c.share >= 0.04).map((c) => c.rgb);
+  const toBg = (p: number) => nearest(colours, d[p * 3], d[p * 3 + 1], d[p * 3 + 2]).distance;
+  const close = border.filter((p) => toBg(p) < 30).length;
+  if (close / border.length < 0.85) return false; // a busy background: a street, a crowded showroom
 
-  // Flood in from the border: background is close to its colour, or barely
-  // different from the background pixel next to it (a gradient).
-  const bg = new Uint8Array(W * H);
-  const queue = new Int32Array(W * H);
+  // Flood in from the edges.
+  const bg = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
   let head = 0;
   let tail = 0;
-  for (const i of border) {
-    const p = i / C;
-    if (!bg[p] && dist(d, i, r, g, b) < 40) (bg[p] = 1, (queue[tail++] = p));
-  }
+  for (const p of border) if (!bg[p] && toBg(p) < 30) (bg[p] = 1), (queue[tail++] = p);
   while (head < tail) {
     const p = queue[head++];
-    const x = p % W;
-    const y = (p - x) / W;
-    const i = p * C;
-    for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      const q = ny * W + nx;
-      if (bg[q]) continue;
-      const j = q * C;
-      const toBg = dist(d, j, r, g, b);
-      const step = Math.hypot(d[j] - d[i], d[j + 1] - d[i + 1], d[j + 2] - d[i + 2]);
-      if (toBg < 48 || (step < 6 && toBg < 90)) (bg[q] = 1, (queue[tail++] = q));
+    const x = p % w;
+    for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w]) {
+      if (q < 0 || q >= w * h || bg[q]) continue;
+      const dq = toBg(q);
+      const step = Math.hypot(d[q * 3] - d[p * 3], d[q * 3 + 1] - d[p * 3 + 1], d[q * 3 + 2] - d[p * 3 + 2]);
+      if (dq < 34 || (step < 6 && dq < 70)) (bg[q] = 1), (queue[tail++] = q);
     }
   }
-  // Something has to be left that's car-sized, not a speck or the whole frame.
-  const kept = W * H - tail;
-  if (kept < W * H * 0.03 || kept > W * H * 0.97) return false;
 
-  // Keep the car: the biggest piece left, and any other piece at least a
-  // fifth its size. Specks of a textured wall or floor go with the background.
-  const piece = new Int32Array(W * H).fill(-1);
+  // Cut thin strips of floor or wall that touch the car (a shadow's edge, a
+  // bright patch) off it: shrink everything by a few pixels and grow it back,
+  // so anything thinner than that falls away and becomes its own piece.
+  open(bg, w, h, 3);
+
+  // The model's mask is coarse (320 px), so it only removes what it's sure
+  // isn't car, grown a little so its blocky edge never bites into the car:
+  // a strip of wall at the nose, a wedge of floor behind the bumper.
+  if (model) {
+    const small = await sharp(model, { raw: { width: W, height: H, channels: 1 } })
+      .resize(w, h, { kernel: "linear" })
+      .extractChannel(0)
+      .raw()
+      .toBuffer();
+    const modelCar = Uint8Array.from(small, (v) => (v >= 128 ? 1 : 0));
+    // Grown by r: a pixel is "not car" only if the model says so all around it.
+    const car = squareFilter(modelCar, w, h, Math.max(2, Math.round(w * 0.008)), "max");
+    let removed = 0;
+    let carBefore = 0;
+    const drop: number[] = [];
+    for (let p = 0; p < w * h; p++) {
+      if (bg[p]) continue;
+      carBefore++;
+      if (!car[p]) drop.push(p), removed++;
+    }
+    // Ignore the model if it would take away a third of the car: it's confused.
+    if (removed < carBefore / 3) for (const p of drop) bg[p] = 1;
+  }
+
+  // Keep the car: the biggest piece left, and any other at least a fifth its
+  // size. Specks of texture go with the background.
+  const piece = new Int32Array(w * h).fill(-1);
   const sizes: number[] = [];
-  for (let start = 0; start < W * H; start++) {
+  for (let start = 0; start < w * h; start++) {
     if (bg[start] || piece[start] >= 0) continue;
     const id = sizes.length;
-    let size = 0;
     head = tail = 0;
     queue[tail++] = start;
     piece[start] = id;
     while (head < tail) {
       const p = queue[head++];
-      size++;
-      const x = p % W;
-      for (const q of [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, p - W, p + W]) {
-        if (q < 0 || q >= W * H || bg[q] || piece[q] >= 0) continue;
+      const x = p % w;
+      for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w]) {
+        if (q < 0 || q >= w * h || bg[q] || piece[q] >= 0) continue;
         piece[q] = id;
         queue[tail++] = q;
       }
     }
-    sizes.push(size);
+    sizes.push(tail);
   }
+  if (!sizes.length) return false;
   const biggest = Math.max(...sizes);
-  for (let p = 0; p < W * H; p++) if (!bg[p] && sizes[piece[p]] < biggest / 5) bg[p] = 1;
-
-  for (let p = 0; p < W * H; p++) {
-    const i = p * C + C - 1;
-    if (bg[p]) {
-      d[i] = 0;
-      continue;
+  const mask = Buffer.alloc(w * h);
+  let [x0, y0, x1, y1] = [w, h, -1, -1];
+  for (let p = 0; p < w * h; p++) {
+    if (bg[p] || sizes[piece[p]] < biggest / 5) continue;
+    mask[p] = 255;
+    const x = p % w;
+    const y = (p - x) / w;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  // Peel background-coloured pixels off the outside of what's left, layer by
+  // layer: patches of wall or floor stuck to the car's outline go, while the
+  // car's paint, tyres and rims, far from the background's colours, stay.
+  for (let layer = 0; layer < 80; layer++) {
+    const peel: number[] = [];
+    for (let p = 0; p < w * h; p++) {
+      if (!mask[p] || toBg(p) >= 70) continue;
+      const x = p % w;
+      const outside = (q: number) => q < 0 || q >= w * h || !mask[q];
+      if ((x > 0 && outside(p - 1)) || (x < w - 1 && outside(p + 1)) || outside(p - w) || outside(p + w) || x === 0 || x === w - 1) {
+        peel.push(p);
+      }
     }
-    // The outline: as see-through as it is close to the background.
-    const x = p % W;
-    const y = (p - x) / W;
-    const edge = (x > 0 && bg[p - 1]) || (x < W - 1 && bg[p + 1]) || (y > 0 && bg[p - W]) || (y < H - 1 && bg[p + W]);
-    if (edge) d[i] = Math.min(d[i], Math.round(Math.max(0, Math.min(1, (dist(d, p * C, r, g, b) - 10) / 50)) * 255));
+    if (!peel.length) break;
+    for (const p of peel) mask[p] = 0;
+  }
+
+  // Strips of wall or floor still joined to the car's ends (a pale band where
+  // a wall meets the floor) are much thinner than the car: trim columns in
+  // from each side while they hold only a sliver of its full height.
+  const columns = new Int32Array(w);
+  for (let p = 0; p < w * h; p++) if (mask[p]) columns[p % w]++;
+  const tallest = Math.max(...columns);
+  // From one end inward: a long, flat, low run is a strip, trimmed up to
+  // where the car's height starts to climb; a short one is the car's own
+  // bumper tapering, and stays. Tiny slivers always go.
+  const trimFrom = (start: number, step: 1 | -1, stop: number) => {
+    let x = start;
+    while (x !== stop && columns[x] < tallest * 0.1) x += step;
+    let end = x;
+    while (end !== stop && columns[end] < tallest * 0.3) end += step;
+    const run = Math.abs(end - x);
+    if (run < (x1 - x0 + 1) * 0.08) return x;
+    const heights = [];
+    for (let i = x; i !== end; i += step) heights.push(columns[i]);
+    heights.sort((a, b) => a - b);
+    const limit = heights[heights.length >> 1] * 1.3;
+    while (x !== stop && columns[x] < limit) x += step;
+    return x;
+  };
+  const left = trimFrom(x0, 1, x1);
+  const right = trimFrom(x1, -1, left);
+  for (let y = 0; y < h; y++) {
+    for (let x = x0; x < left; x++) mask[y * w + x] = 0;
+    for (let x = right + 1; x <= x1; x++) mask[y * w + x] = 0;
+  }
+  [x0, x1] = [left, right];
+  y0 = h;
+  y1 = -1;
+  for (let p = 0; p < w * h; p++) {
+    if (!mask[p]) continue;
+    const y = Math.floor(p / w);
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+
+  // What's left has to look like a car side-on, not a chunk of scenery.
+  const kept = mask.reduce((n, v) => n + (v ? 1 : 0), 0);
+  const aspect = (x1 - x0 + 1) / (y1 - y0 + 1);
+  if (kept < w * h * 0.03 || kept > w * h * 0.95 || aspect < 1.5 || aspect > 6) return false;
+
+  // Back to full size. Inside the outline is car, outside isn't; in the few
+  // pixels along it, each pixel's own colour says how much is car (far from
+  // the background's colours: car; close: background), so the edge is as
+  // sharp as the photo, not the small copy.
+  const soft = await sharp(mask, { raw: { width: w, height: h, channels: 1 } })
+    .resize(W, H, { kernel: "linear" })
+    .blur(Math.max(1, 1.2 / scale))
+    // One channel back, not the three sharp would otherwise give.
+    .extractChannel(0)
+    .raw()
+    .toBuffer();
+  for (let p = 0; p < W * H; p++) {
+    const i = p * C;
+    let a = soft[p];
+    if (a > 6 && a < 249) {
+      const own = nearest(colours, raw.data[i], raw.data[i + 1], raw.data[i + 2]).distance;
+      const byColour = Math.max(0, Math.min(1, (own - 22) / 30)) * 255;
+      // Well outside the outline, never more than the outline allows.
+      a = Math.round(a < 96 ? Math.min(byColour, a * 2) : byColour);
+    }
+    raw.data[i + C - 1] = Math.min(raw.data[i + C - 1], a);
   }
   return true;
+}
+
+/**
+ * Morphological opening of the foreground (where `bg` is 0) with a square
+ * of radius `r`: shrink it by r, then grow it back by r. Shapes and joins
+ * thinner than 2r + 1 pixels vanish; everything else keeps its outline.
+ */
+function open(bg: Uint8Array, w: number, h: number, r: number) {
+  const fg = Uint8Array.from(bg, (v) => (v ? 0 : 1));
+  const opened = squareFilter(squareFilter(fg, w, h, r, "min"), w, h, r, "max");
+  for (let p = 0; p < w * h; p++) bg[p] = opened[p] ? 0 : 1;
+}
+
+/**
+ * The min (shrink) or max (grow) of a 0/1 image over a square of radius r
+ * round each pixel, done a row and then a column at a time. Outside the
+ * image counts as 0.
+ */
+function squareFilter(src: Uint8Array, w: number, h: number, r: number, keep: "min" | "max"): Uint8Array {
+  const pass = (from: Uint8Array, horizontal: boolean) => {
+    const out = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let v = keep === "min" ? 1 : 0;
+        for (let k = -r; k <= r; k++) {
+          const xx = horizontal ? x + k : x;
+          const yy = horizontal ? y : y + k;
+          const s = xx >= 0 && yy >= 0 && xx < w && yy < h ? from[yy * w + xx] : 0;
+          v = keep === "min" ? Math.min(v, s) : Math.max(v, s);
+        }
+        out[y * w + x] = v;
+      }
+    }
+    return out;
+  };
+  return pass(pass(src, true), false);
+}
+
+// ---------- The model ----------
+
+/**
+ * U²-Netp (models/u2netp.onnx, see models/README.md): a small model that
+ * picks out the main object in a photo. On its own it's rough, but it's sure
+ * about what isn't the car, which is what the colour method above gets
+ * wrong (a strip of wall the same grey as the floor's edge). Loaded once, on
+ * first use. Null when it can't be (no onnxruntime-node on this host, say),
+ * or when CAR_PHOTO_MODEL=off; photos are then prepared without it.
+ */
+type Session = import("onnxruntime-node").InferenceSession;
+let session: Promise<Session | null> | undefined;
+const MODEL_SIZE = 320;
+
+function loadModel(): Promise<Session | null> {
+  if (process.env.CAR_PHOTO_MODEL === "off") return Promise.resolve(null);
+  session ??= (async () => {
+    try {
+      const { InferenceSession } = await import("onnxruntime-node");
+      const path = await import("node:path");
+      return await InferenceSession.create(path.join(process.cwd(), "models/u2netp.onnx"), {
+        // Less memory, a little slower: this runs once per uploaded photo.
+        enableCpuMemArena: false,
+        enableMemPattern: false,
+        executionMode: "sequential",
+        intraOpNumThreads: 2,
+      });
+    } catch (e) {
+      console.warn("[car photo] background model not loaded, using colours only:", (e as Error).message);
+      return null;
+    }
+  })();
+  return session;
+}
+
+/** The model's guess at which pixels are the car, 0–255, at full size; null without the model. */
+export async function modelMask(raw: Raw): Promise<Buffer | null> {
+  const model = await loadModel();
+  if (!model) return null;
+  const { Tensor } = await import("onnxruntime-node");
+  const { width: W, height: H, channels: C } = raw.info;
+  const S = MODEL_SIZE;
+  const rgb = await sharp(raw.data, { raw: { width: W, height: H, channels: C } })
+    .removeAlpha()
+    .resize(S, S, { fit: "fill", kernel: "lanczos3" })
+    .raw()
+    .toBuffer();
+  // As rembg feeds U²-Net: scaled by the brightest value, then ImageNet's
+  // mean and spread per channel.
+  let max = 1;
+  for (const v of rgb) if (v > max) max = v;
+  const mean = [0.485, 0.456, 0.406];
+  const spread = [0.229, 0.224, 0.225];
+  const input = new Float32Array(3 * S * S);
+  for (let i = 0; i < S * S; i++) {
+    for (let c = 0; c < 3; c++) input[c * S * S + i] = (rgb[i * 3 + c] / max - mean[c]) / spread[c];
+  }
+  const out = await model.run({ [model.inputNames[0]]: new Tensor("float32", input, [1, 3, S, S]) });
+  const pred = out[model.outputNames[0]].data as Float32Array;
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const v of pred) (lo = Math.min(lo, v)), (hi = Math.max(hi, v));
+  // Sharpened: unsure pixels count as background.
+  const mask = Buffer.alloc(S * S);
+  for (let i = 0; i < S * S; i++) {
+    const m = (pred[i] - lo) / (hi - lo || 1);
+    mask[i] = Math.round(Math.max(0, Math.min(1, (m - 0.45) * 5)) * 255);
+  }
+  return sharp(mask, { raw: { width: S, height: S, channels: 1 } })
+    .resize(W, H, { kernel: "lanczos3" })
+    .extractChannel(0)
+    .raw()
+    .toBuffer();
 }
 
 export interface PreparedUpload {
@@ -449,7 +701,8 @@ export interface PreparedUpload {
 
 /**
  * Do the fiddly part of preparing a car photo for someone uploading one:
- * remove a plain background, crop to the car and find the wheels. Lenient,
+ * remove a simple background (removeBackground), crop to the car and find
+ * the wheels. Lenient,
  * unlike prepareCarPhoto: it's their photo, so it's never turned down, just
  * left as it is when the background can't be removed.
  */
@@ -458,7 +711,9 @@ export async function prepareUpload(bytes: Buffer): Promise<PreparedUpload | { e
   const raw = await decode(bytes, 3000);
   if (!raw) return { error: "That file isn't an image." };
   let background: PreparedUpload["background"] = "already";
-  if (!clearBorder(raw)) background = removePlainBackground(raw) ? "removed" : "busy";
+  if (!clearBorder(raw)) {
+    background = (await removeBackground(raw, await modelMask(raw))) ? "removed" : "busy";
+  }
   const box = background === "busy" ? null : cropBox(raw);
   const whole = { x0: 0, y0: 0, w: raw.info.width, h: raw.info.height };
   const crop = box ?? whole;

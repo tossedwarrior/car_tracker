@@ -95,7 +95,7 @@ export function WatchForm({
           required={false}
           current={images.photo}
           error={e.photo}
-          hint="Optional. A side-on photo; on a plain background (white, grey, a studio) we'll remove the background, crop it and mark the wheels for you. Facing left is best."
+          hint="Optional. A side-on photo; on a simple background (a studio, or a wall and floor) we'll remove the background, crop it and mark the wheels for you. Facing left is best."
           prepare={preparePhoto}
           onPreview={(url, wheels) => {
             setFoundWheels(wheels ?? null);
@@ -183,7 +183,7 @@ async function preparePhoto(file: File): Promise<Prepared> {
     if (body.background === "busy") {
       return {
         wheels: null,
-        note: "The background is too busy to remove, so the photo is as you chose it. A photo on a plain background works best (on a Mac: right-click the file, Quick Actions, Remove Background).",
+        note: "The background is too busy to remove, so the photo is as you chose it. A photo against a plain wall or studio works best (on a Mac: right-click the file, Quick Actions, Remove Background).",
       };
     }
     const bytes = Uint8Array.from(atob(body.image), (c) => c.charCodeAt(0));

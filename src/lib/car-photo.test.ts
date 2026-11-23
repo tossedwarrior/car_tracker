@@ -8,7 +8,16 @@ import { insertRow, makeUser } from "@/test/db";
 import { NextRequest } from "next/server";
 import { POST as preparePhotoRoute } from "@/app/api/prepare-photo/route";
 import { SESSION_COOKIE } from "@/lib/auth";
-import { downloadImage, findWheels, isPrivateAddress, lookUpCarPhoto, prepareCarPhoto, prepareUpload } from "./car-photo";
+import {
+  downloadImage,
+  findWheels,
+  isPrivateAddress,
+  lookUpCarPhoto,
+  prepareCarPhoto,
+  prepareUpload,
+  modelMask,
+  removeBackground,
+} from "./car-photo";
 import { createSession } from "./users";
 import { getImage } from "./images";
 
@@ -208,6 +217,24 @@ describe("prepareUpload", () => {
     expect(data[info.channels - 1]).toBe(0);
   });
 
+  it("removes a two-tone, textured background: a concrete wall above a pale floor", async () => {
+    // A blotchy grey wall down to y 600, a near-white floor below, and the car.
+    const wall = Array.from({ length: 120 }, (_, i) => {
+      const shade = 95 + ((i * 37) % 40);
+      return `<rect x="${(i * 97) % 2400}" y="${(i * 53) % 560}" width="160" height="60" fill="rgb(${shade},${shade + 4},${shade + 10})"/>`;
+    }).join("");
+    const svg = carSvg("rgb(112,118,126)").replace(
+      '<path d=',
+      `${wall}<rect x="0" y="600" width="2400" height="200" fill="#e6e6e4"/><path d=`,
+    );
+    const prepared = await prepareUpload(await jpeg(svg));
+    if ("error" in prepared) throw new Error(prepared.error);
+    expect(prepared.background).toBe("removed");
+    expect(prepared.width).toBeLessThan(2100);
+    expect(prepared.wheels?.front.x).toBeCloseTo(0.2, 1);
+    expect(prepared.wheels?.rear.x).toBeCloseTo(0.8, 1);
+  });
+
   it("leaves a busy background alone, and never turns a photo down", async () => {
     // Random noise all over: nothing plain to remove.
     const noise = Buffer.alloc(800 * 300 * 3);
@@ -235,5 +262,34 @@ describe("prepareUpload", () => {
     expect(body).toMatchObject({ background: "already" });
     expect(body.wheels.front.x).toBeCloseTo(0.2, 1);
     expect(Buffer.from(body.image, "base64").subarray(1, 4).toString()).toBe("PNG");
+  });
+});
+
+describe("the background model", () => {
+  const decoded = async (svg: string) =>
+    sharp(await jpeg(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const solid = (raw: { data: Buffer }) => {
+    let n = 0;
+    for (let p = 3; p < raw.data.length; p += 4) if (raw.data[p] >= 128) n++;
+    return n;
+  };
+
+  it("gives a full-size mask, and only ever takes pieces away from the colour cut-out", async () => {
+    const photo = await decoded(carSvg("#f2f2f2"));
+    const mask = await modelMask(photo);
+    expect(mask?.length).toBe(2400 * 800);
+
+    const byColour = await decoded(carSvg("#f2f2f2"));
+    expect(await removeBackground(byColour)).toBe(true);
+    const withModel = await decoded(carSvg("#f2f2f2"));
+    expect(await removeBackground(withModel, mask)).toBe(true);
+    expect(solid(withModel)).toBeLessThanOrEqual(solid(byColour));
+    // The car itself stays.
+    expect(solid(withModel)).toBeGreaterThan(solid(byColour) * 0.9);
+  });
+
+  it("can be turned off", async () => {
+    vi.stubEnv("CAR_PHOTO_MODEL", "off");
+    expect(await modelMask(await decoded(carSvg("#f2f2f2")))).toBeNull();
   });
 });
