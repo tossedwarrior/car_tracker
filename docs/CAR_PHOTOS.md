@@ -1,9 +1,15 @@
 # Car photos and logos for the home page
 
 With `CARSXE_API_KEY` set, the app finds a photo for any car that has none
-and marks its wheels (see the README's "Car photos"). The rest of this page is
-for preparing one by hand: a better photo than the one found, or a car
-CarsXE has nothing usable for.
+and marks its wheels (see the README's "Car photos").
+
+When you choose a photo in the car form, the app prepares it straight away
+(`src/lib/car-photo.ts`, `prepareUpload`): it removes a plain background
+(white, grey, a studio backdrop), crops to the car and marks the wheels, and
+the form shows the result to check, with "Use my original instead" to undo.
+A busy background (a street, a showroom) is left as it is. Tick "The car in
+this photo faces right" yourself if it does. The rest of this page is for
+preparing a photo by hand, when the automatic result isn't right.
 
 The home page drives each car in from the right and out to the left, with its
 wheels turning. For that to look right, every photo needs to be prepared the

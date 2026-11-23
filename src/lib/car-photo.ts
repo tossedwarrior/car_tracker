@@ -239,78 +239,235 @@ export interface PreparedPhoto {
   wheels: WheelSpec;
 }
 
-/**
- * Turn a downloaded image into a home-page car photo, or say why it won't
- * do: it needs a transparent background around a side-on car with two
- * findable wheels. Crops to the car (soft shadows left out) and saves a PNG.
- */
-export async function prepareCarPhoto(bytes: Buffer): Promise<PreparedPhoto | { reject: string }> {
-  let raw: { data: Buffer; info: OutputInfo };
-  try {
-    raw = await sharp(bytes, { limitInputPixels: 40_000_000 })
-      .rotate()
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-  } catch {
-    return { reject: "not an image" };
-  }
-  const { width: W, height: H, channels } = raw.info;
-  const alpha = (x: number, y: number) => raw.data[(y * W + x) * channels + channels - 1];
+type Raw = { data: Buffer; info: OutputInfo };
+type Box = { x0: number; y0: number; w: number; h: number };
 
-  // A real cut-out: almost all of the border is see-through.
+/** An image as RGBA pixels, upright, or null if it isn't one. */
+async function decode(bytes: Buffer, maxWidth?: number): Promise<Raw | null> {
+  try {
+    let img = sharp(bytes, { limitInputPixels: 40_000_000 }).rotate();
+    if (maxWidth) img = img.resize({ width: maxWidth, withoutEnlargement: true });
+    return await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  } catch {
+    return null;
+  }
+}
+
+const alphaAt = (raw: Raw, x: number, y: number) => {
+  const { width, channels } = raw.info;
+  return raw.data[(y * width + x) * channels + channels - 1];
+};
+
+/** Whether almost all of the image's border is see-through: a real cut-out. */
+function clearBorder(raw: Raw): boolean {
+  const { width: W, height: H } = raw.info;
   let clear = 0;
   let border = 0;
-  for (let x = 0; x < W; x += 2) for (const y of [0, H - 1]) (border++, alpha(x, y) < 16 && clear++);
-  for (let y = 0; y < H; y += 2) for (const x of [0, W - 1]) (border++, alpha(x, y) < 16 && clear++);
-  if (clear / border < 0.9) return { reject: "no transparent background" };
+  for (let x = 0; x < W; x += 2) for (const y of [0, H - 1]) (border++, alphaAt(raw, x, y) < 16 && clear++);
+  for (let y = 0; y < H; y += 2) for (const x of [0, W - 1]) (border++, alphaAt(raw, x, y) < 16 && clear++);
+  return clear / border >= 0.9;
+}
 
-  // Tight to the car's solid pixels (a soft shadow is mostly see-through).
+/** Tight round the car's solid pixels (a soft shadow is mostly see-through). */
+function cropBox(raw: Raw): Box | null {
+  const { width: W, height: H } = raw.info;
   let [x0, y0, x1, y1] = [W, H, -1, -1];
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      if (alpha(x, y) < 128) continue;
+      if (alphaAt(raw, x, y) < 128) continue;
       if (x < x0) x0 = x;
       if (x > x1) x1 = x;
       if (y < y0) y0 = y;
       if (y > y1) y1 = y;
     }
   }
-  if (x1 < 0) return { reject: "empty image" };
-  const w = x1 - x0 + 1;
-  const h = y1 - y0 + 1;
-  if (w < 500) return { reject: `too small (${w} px wide)` };
-  if (w / h < MIN_ASPECT || w / h > MAX_ASPECT) return { reject: "not a side-on view" };
+  return x1 < 0 ? null : { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
 
+/** The wheels inside the crop: from where the tyres touch the ground, else from the rims. */
+async function wheelsIn(raw: Raw, box: Box): Promise<WheelSpec | null> {
+  const { x0, y0, w, h } = box;
   const opaque = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) opaque[y * w + x] = alpha(x0 + x, y0 + y) >= 128 ? 1 : 0;
-  let wheels = findWheels(opaque, w, h);
-  if (!wheels) {
-    // A shadow under the car, or one tyre lower than the other: look for the
-    // rims instead, on a copy about 500 px wide.
-    const small = Math.min(1, 500 / w);
-    const sw = Math.round(w * small);
-    const sh = Math.round(h * small);
-    const rgba = await sharp(raw.data, { raw: { width: W, height: H, channels } })
-      .extract({ left: x0, top: y0, width: w, height: h })
-      .resize(sw, sh)
-      .ensureAlpha()
-      .raw()
-      .toBuffer();
-    wheels = findWheelsByCircles(rgba, sw, sh);
-  }
-  if (!wheels) return { reject: "couldn't find two wheels" };
-
-  const scale = Math.min(1, MAX_WIDTH / w);
-  const outW = Math.round(w * scale);
-  const outH = Math.round(h * scale);
-  const data = await sharp(raw.data, { raw: { width: W, height: H, channels } })
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) opaque[y * w + x] = alphaAt(raw, x0 + x, y0 + y) >= 128 ? 1 : 0;
+  const wheels = findWheels(opaque, w, h);
+  if (wheels) return wheels;
+  // A shadow under the car, or one tyre lower than the other: look for the
+  // rims instead, on a copy about 500 px wide.
+  const small = Math.min(1, 500 / w);
+  const sw = Math.round(w * small);
+  const sh = Math.round(h * small);
+  const { width: W, height: H, channels } = raw.info;
+  const rgba = await sharp(raw.data, { raw: { width: W, height: H, channels } })
     .extract({ left: x0, top: y0, width: w, height: h })
-    .resize(outW, outH)
+    .resize(sw, sh)
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
+  return findWheelsByCircles(rgba, sw, sh);
+}
+
+/** The crop as a PNG at most MAX_WIDTH wide. */
+async function exportPng(raw: Raw, box: Box) {
+  const { width: W, height: H, channels } = raw.info;
+  const scale = Math.min(1, MAX_WIDTH / box.w);
+  const width = Math.round(box.w * scale);
+  const height = Math.round(box.h * scale);
+  const data = await sharp(raw.data, { raw: { width: W, height: H, channels } })
+    .extract({ left: box.x0, top: box.y0, width: box.w, height: box.h })
+    .resize(width, height)
     .png({ compressionLevel: 9 })
     .toBuffer();
-  if (data.length > MAX_IMAGE_BYTES) return { reject: "too large" };
-  return { data, width: outW, height: outH, wheels };
+  return { data, width, height };
+}
+
+/**
+ * Turn a downloaded image into a home-page car photo, or say why it won't
+ * do: it needs a transparent background around a side-on car with two
+ * findable wheels. Crops to the car (soft shadows left out) and saves a PNG.
+ */
+export async function prepareCarPhoto(bytes: Buffer): Promise<PreparedPhoto | { reject: string }> {
+  const raw = await decode(bytes);
+  if (!raw) return { reject: "not an image" };
+  if (!clearBorder(raw)) return { reject: "no transparent background" };
+  const box = cropBox(raw);
+  if (!box) return { reject: "empty image" };
+  if (box.w < 500) return { reject: `too small (${box.w} px wide)` };
+  if (box.w / box.h < MIN_ASPECT || box.w / box.h > MAX_ASPECT) return { reject: "not a side-on view" };
+  const wheels = await wheelsIn(raw, box);
+  if (!wheels) return { reject: "couldn't find two wheels" };
+  const png = await exportPng(raw, box);
+  if (png.data.length > MAX_IMAGE_BYTES) return { reject: "too large" };
+  return { ...png, wheels };
+}
+
+// ---------- Uploaded photos ----------
+
+/** Colour distance between two pixels (RGB, 0–441). */
+const dist = (d: Buffer, i: number, r: number, g: number, b: number) =>
+  Math.hypot(d[i] - r, d[i + 1] - g, d[i + 2] - b);
+
+/**
+ * Make a plain background see-through: the colour most of the border shares
+ * (white, grey, a studio backdrop), flooded in from the edges so the car
+ * itself is left alone even where it's a similar colour. Follows gentle
+ * gradients, and softens the car's outline by a pixel. Returns false, and
+ * changes nothing, when the background isn't plain enough to tell apart.
+ */
+export function removePlainBackground(raw: Raw): boolean {
+  const { width: W, height: H, channels: C } = raw.info;
+  const d = raw.data;
+  const at = (x: number, y: number) => (y * W + x) * C;
+
+  // The background's colour: the median of the border's.
+  const border: number[] = [];
+  for (let x = 0; x < W; x++) border.push(at(x, 0), at(x, H - 1));
+  for (let y = 0; y < H; y++) border.push(at(0, y), at(W - 1, y));
+  const median = (k: number) => border.map((i) => d[i + k]).sort((a, b) => a - b)[border.length >> 1];
+  const [r, g, b] = [median(0), median(1), median(2)];
+  const near = border.filter((i) => dist(d, i, r, g, b) < 40).length;
+  if (near / border.length < 0.8) return false; // a busy background: a street, a showroom
+
+  // Flood in from the border: background is close to its colour, or barely
+  // different from the background pixel next to it (a gradient).
+  const bg = new Uint8Array(W * H);
+  const queue = new Int32Array(W * H);
+  let head = 0;
+  let tail = 0;
+  for (const i of border) {
+    const p = i / C;
+    if (!bg[p] && dist(d, i, r, g, b) < 40) (bg[p] = 1, (queue[tail++] = p));
+  }
+  while (head < tail) {
+    const p = queue[head++];
+    const x = p % W;
+    const y = (p - x) / W;
+    const i = p * C;
+    for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const q = ny * W + nx;
+      if (bg[q]) continue;
+      const j = q * C;
+      const toBg = dist(d, j, r, g, b);
+      const step = Math.hypot(d[j] - d[i], d[j + 1] - d[i + 1], d[j + 2] - d[i + 2]);
+      if (toBg < 48 || (step < 6 && toBg < 90)) (bg[q] = 1, (queue[tail++] = q));
+    }
+  }
+  // Something has to be left that's car-sized, not a speck or the whole frame.
+  const kept = W * H - tail;
+  if (kept < W * H * 0.03 || kept > W * H * 0.97) return false;
+
+  // Keep the car: the biggest piece left, and any other piece at least a
+  // fifth its size. Specks of a textured wall or floor go with the background.
+  const piece = new Int32Array(W * H).fill(-1);
+  const sizes: number[] = [];
+  for (let start = 0; start < W * H; start++) {
+    if (bg[start] || piece[start] >= 0) continue;
+    const id = sizes.length;
+    let size = 0;
+    head = tail = 0;
+    queue[tail++] = start;
+    piece[start] = id;
+    while (head < tail) {
+      const p = queue[head++];
+      size++;
+      const x = p % W;
+      for (const q of [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, p - W, p + W]) {
+        if (q < 0 || q >= W * H || bg[q] || piece[q] >= 0) continue;
+        piece[q] = id;
+        queue[tail++] = q;
+      }
+    }
+    sizes.push(size);
+  }
+  const biggest = Math.max(...sizes);
+  for (let p = 0; p < W * H; p++) if (!bg[p] && sizes[piece[p]] < biggest / 5) bg[p] = 1;
+
+  for (let p = 0; p < W * H; p++) {
+    const i = p * C + C - 1;
+    if (bg[p]) {
+      d[i] = 0;
+      continue;
+    }
+    // The outline: as see-through as it is close to the background.
+    const x = p % W;
+    const y = (p - x) / W;
+    const edge = (x > 0 && bg[p - 1]) || (x < W - 1 && bg[p + 1]) || (y > 0 && bg[p - W]) || (y < H - 1 && bg[p + W]);
+    if (edge) d[i] = Math.min(d[i], Math.round(Math.max(0, Math.min(1, (dist(d, p * C, r, g, b) - 10) / 50)) * 255));
+  }
+  return true;
+}
+
+export interface PreparedUpload {
+  data: Buffer;
+  width: number;
+  height: number;
+  /** Null when they couldn't be found; the form then guesses. */
+  wheels: WheelSpec | null;
+  /** "removed" it, it was "already" see-through, or too "busy" to remove (left as it was). */
+  background: "removed" | "already" | "busy";
+}
+
+/**
+ * Do the fiddly part of preparing a car photo for someone uploading one:
+ * remove a plain background, crop to the car and find the wheels. Lenient,
+ * unlike prepareCarPhoto: it's their photo, so it's never turned down, just
+ * left as it is when the background can't be removed.
+ */
+export async function prepareUpload(bytes: Buffer): Promise<PreparedUpload | { error: string }> {
+  // Plenty for the home page, and quick to work on.
+  const raw = await decode(bytes, 3000);
+  if (!raw) return { error: "That file isn't an image." };
+  let background: PreparedUpload["background"] = "already";
+  if (!clearBorder(raw)) background = removePlainBackground(raw) ? "removed" : "busy";
+  const box = background === "busy" ? null : cropBox(raw);
+  const whole = { x0: 0, y0: 0, w: raw.info.width, h: raw.info.height };
+  const crop = box ?? whole;
+  const found = box ? await wheelsIn(raw, box) : null;
+  // Only wheels that fit a side-on car; otherwise the form's guess is as good.
+  const wheels = found && sideOnWheels(found, crop.w, crop.h) ? found : null;
+  const png = await exportPng(raw, crop);
+  if (png.data.length > MAX_IMAGE_BYTES) return { error: "That photo is too large once prepared. Try a smaller one." };
+  return { ...png, wheels, background };
 }
 
 // ---------- Downloading from other sites ----------

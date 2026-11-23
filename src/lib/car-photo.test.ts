@@ -4,8 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { watchImages, watchlist } from "@/db/schema";
 import { carImagesUrl, findCarImages } from "@/sources/carsxe";
-import { insertRow } from "@/test/db";
-import { downloadImage, findWheels, isPrivateAddress, lookUpCarPhoto, prepareCarPhoto } from "./car-photo";
+import { insertRow, makeUser } from "@/test/db";
+import { NextRequest } from "next/server";
+import { POST as preparePhotoRoute } from "@/app/api/prepare-photo/route";
+import { SESSION_COOKIE } from "@/lib/auth";
+import { downloadImage, findWheels, isPrivateAddress, lookUpCarPhoto, prepareCarPhoto, prepareUpload } from "./car-photo";
+import { createSession } from "./users";
 import { getImage } from "./images";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -184,5 +188,52 @@ describe("lookUpCarPhoto", () => {
     const car = await insertRow(watchlist, { make: "Ferrari", model: "SF90", yearMin: 2020, yearMax: 2024 });
     expect(await lookUpCarPhoto(car.id, { fetchImpl: vi.fn() })).toEqual({ status: "no_key" });
     expect((await db.select().from(watchlist).where(eq(watchlist.id, car.id)))[0].photoLookupAt).toBeNull();
+  });
+});
+
+describe("prepareUpload", () => {
+  it("removes a plain background, crops to the car and finds its wheels", async () => {
+    // The made-up car on a light grey studio backdrop, saved as a JPEG.
+    const photo = await jpeg(carSvg("#f2f2f2"));
+    const prepared = await prepareUpload(photo);
+    if ("error" in prepared) throw new Error(prepared.error);
+    expect(prepared.background).toBe("removed");
+    // Cropped to the car (about 2000 × 450 of the 2400 × 800 photo).
+    expect(prepared.width).toBeGreaterThan(1950);
+    expect(prepared.height).toBeLessThan(470);
+    expect(prepared.wheels?.front.x).toBeCloseTo(0.2, 1);
+    expect(prepared.wheels?.rear.x).toBeCloseTo(0.8, 1);
+    // The corners are see-through now.
+    const { data, info } = await sharp(prepared.data).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    expect(data[info.channels - 1]).toBe(0);
+  });
+
+  it("leaves a busy background alone, and never turns a photo down", async () => {
+    // Random noise all over: nothing plain to remove.
+    const noise = Buffer.alloc(800 * 300 * 3);
+    for (let i = 0; i < noise.length; i++) noise[i] = (i * 2654435761) % 251;
+    const photo = await sharp(noise, { raw: { width: 800, height: 300, channels: 3 } }).jpeg().toBuffer();
+    const prepared = await prepareUpload(photo);
+    if ("error" in prepared) throw new Error(prepared.error);
+    expect(prepared).toMatchObject({ background: "busy", wheels: null, width: 800, height: 300 });
+    expect(await prepareUpload(Buffer.from("not an image"))).toEqual({ error: "That file isn't an image." });
+  });
+
+  it("keeps a photo that's already a cut-out, and is only for people signed in", async () => {
+    const cutOut = await png(carSvg());
+    const session = await createSession((await makeUser()).id);
+    const post = (cookie?: string) =>
+      preparePhotoRoute(
+        new NextRequest("http://x/api/prepare-photo", {
+          method: "POST",
+          body: new Uint8Array(cutOut),
+          headers: cookie ? { cookie } : {},
+        }),
+      );
+    expect((await post()).status).toBe(401);
+    const body = await (await post(`${SESSION_COOKIE}=${session}`)).json();
+    expect(body).toMatchObject({ background: "already" });
+    expect(body.wheels.front.x).toBeCloseTo(0.2, 1);
+    expect(Buffer.from(body.image, "base64").subarray(1, 4).toString()).toBe("PNG");
   });
 });
