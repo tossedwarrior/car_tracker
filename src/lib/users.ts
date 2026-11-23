@@ -119,6 +119,10 @@ export async function endSession(token: string | undefined) {
   if (token) await db.delete(sessions).where(eq(sessions.tokenHash, await hashToken(token)));
 }
 
+export async function setDisplayCurrency(userId: number, currency: User["displayCurrency"]) {
+  await db.update(users).set({ displayCurrency: currency }).where(eq(users.id, userId));
+}
+
 export async function updatePreferences(
   userId: number,
   prefs: { name: string | null; listingEmails: boolean; monthlyReport: boolean },

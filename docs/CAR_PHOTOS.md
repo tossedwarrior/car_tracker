@@ -1,5 +1,10 @@
 # Car photos and logos for the home page
 
+With `CARSXE_API_KEY` set, the app finds a photo for any car that has none
+and marks its wheels (see the README's "Car photos"). The rest of this page is
+for preparing one by hand: a better photo than the one found, or a car
+CarsXE has nothing usable for.
+
 The home page drives each car in from the right and out to the left, with its
 wheels turning. For that to look right, every photo needs to be prepared the
 same way. You only do this once per car.

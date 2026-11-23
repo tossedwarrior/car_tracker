@@ -8,6 +8,9 @@ import { Rates, syncRates } from "@/lib/fx";
 import { getUsage } from "@/sources/usage";
 import { recordAlerts, type AlertCounts } from "./alerts";
 import { takeMarketSnapshot } from "./market";
+import { latestAlertId, notifyNewListings } from "./notify";
+import { syncFollowersOf } from "@/lib/people";
+import { customerio } from "@/lib/customerio";
 import { callsPerWatch, localDate } from "./budget";
 import { recordListings, type IngestStats } from "./ingest";
 
@@ -47,6 +50,7 @@ export async function runRefresh({
   let sourcesRun = 0;
 
   const [run] = await db.insert(checkRuns).values({ startedAt: now.toISOString() }).$returningId();
+  const alertsBefore = await latestAlertId();
 
   const watches = await db
     .select()
@@ -129,6 +133,19 @@ export async function runRefresh({
   }
 
   for (const id of refreshed) await takeMarketSnapshot(id, rates, now);
+
+  // Customer.io: new-listing emails, and fresh market numbers on every
+  // follower's profile for the monthly report. A failure here is logged, and
+  // the refresh itself still counts.
+  if (customerio() && refreshed.size) {
+    try {
+      const people = await notifyNewListings(alertsBefore, rates);
+      if (people) log.push(`Customer.io: new listings sent for ${people} ${people === 1 ? "person" : "people"}.`);
+      await syncFollowersOf([...refreshed], rates);
+    } catch (e) {
+      log.push(`Customer.io: not updated, ${(e as Error).message}`);
+    }
+  }
 
   const finishedAt = new Date().toISOString();
   if (refreshed.size) {

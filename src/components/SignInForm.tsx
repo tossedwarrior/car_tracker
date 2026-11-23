@@ -10,14 +10,17 @@ export function SignInForm({ next }: { next: string }) {
   if (state.sentTo) {
     return (
       <div className="signin-sent" role="status">
-        <p className="strong">Check your email</p>
+        <p className="strong">{state.devLink ? "No email sent" : "Check your email"}</p>
         <p className="muted">
-          We sent a sign-in link to {state.sentTo}. It works once, for the next 30 minutes.
+          {state.devLink ? "The link below signs in" : "We sent a sign-in link to"} {state.sentTo}. It works once, for
+          the next 30 minutes.
         </p>
         {state.devLink && (
           <p className="notice small">
-            No email service is set up yet, so here&apos;s the link (development only):{" "}
-            <a href={state.devLink}>Sign in</a>
+            {state.emailProblem === "failed"
+              ? "Customer.io didn't send the email (the reason is in the server log)"
+              : "No email service is set up yet"}
+            , so here&apos;s the link (development only): <a href={state.devLink}>Sign in</a>
           </p>
         )}
       </div>

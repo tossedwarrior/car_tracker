@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HomeCar } from "@/lib/home";
+import { drawnCar } from "@/lib/outlines";
 import { sceneMotion } from "@/lib/showroom";
 import { wheelTurn } from "@/lib/wheels";
 import { CarSprite } from "./CarSprite";
@@ -62,14 +63,15 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
         p.car.style.visibility = m.offStage ? "hidden" : "visible";
       }
 
-      const wheels = carInfo.images.photo?.wheels;
+      const drawn = drawnCar(carInfo);
+      const wheels = drawn?.wheels;
       if (wheels && !reduce) {
         [wheels.front, wheels.rear].forEach((w, k) => {
           const el = p.wheels[k];
           if (!el) return;
           const turn = wheelTurn(x, w.r * carW);
           // A right-facing photo is drawn mirrored, which mirrors the turn too.
-          const deg = carInfo.images.photo?.facesRight ? -turn : turn;
+          const deg = drawn?.facesRight ? -turn : turn;
           el.style.transform = `rotate(${deg.toFixed(2)}deg)`;
         });
       }
@@ -134,7 +136,8 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
       <div ref={stage} className="showroom-stage">
         <div className="showroom-ground" aria-hidden="true" />
         {cars.map((car, i) => {
-          const photo = car.images.photo;
+          // The car's photo, or its body-style outline until it has one.
+          const photo = drawnCar(car);
           const logo = car.images.logo;
           const aspect = photo?.width && photo.height ? photo.height / photo.width : 0.32;
           const logoAspect = logo?.width && logo.height ? logo.height / logo.width : 0.47;
@@ -175,6 +178,11 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
                   </p>
                 )}
                 <div className="scene-details">
+                  {car.outline && photo === car.outline && (
+                    <p className="scene-outline-note">
+                      <Link href={`/watch/${car.id}/edit`}>Add a car photo</Link> to see the real car here.
+                    </p>
+                  )}
                   <CarStats car={car} />
                   <Link href={`/watch/${car.id}`} className="pill-button primary">
                     View listings &amp; market

@@ -36,6 +36,22 @@ npm run db:seed        # optional: example Ferrari 458 watch + saved listings, n
 npm run dev            # http://localhost:3000
 ```
 
+## Customer.io
+
+Email goes through Customer.io; the keys and what each one does are in
+`.env.example`, and the plan, events and email templates in
+[docs/CUSTOMERIO_PLAN.md](docs/CUSTOMERIO_PLAN.md). Each part is off until its
+key is set, so the app runs without it.
+
+- `src/lib/customerio.ts`: the server client and the transactional API.
+- `src/lib/people.ts`: each person's profile (email preferences, the cars they
+  follow with market numbers) and their events.
+- `src/jobs/notify.ts`: one `new_listings` event per person after a refresh.
+- `src/components/CustomerioAnalytics.tsx`: the browser (identify, page views,
+  clicks on `data-track` elements).
+
+Tests never talk to Customer.io: `src/test/setup.ts` clears the keys.
+
 ## Data sources
 
 Each source is an adapter in `src/sources/` that returns listings in one shared
@@ -70,6 +86,31 @@ A refresh saves new and changed listings (with a price snapshot on each
 change). A car missing from refreshes on 3 different days is marked gone.
 Each car fetches up to 5 pages of 20; each source stops before its free
 monthly limit. Refreshes and API call counts are on the Settings page.
+
+## Car photos
+
+Each car needs a side-on photo for the home page, with its wheels marked so
+they turn. With `CARSXE_API_KEY` set, adding a car with no photo looks one up
+in the background: CarsXE suggests up to 10 images, and the app keeps the
+first with a transparent background and two wheels it can find
+(`src/lib/car-photo.ts`). It crops the photo, marks the wheels (from where the
+tyres touch the ground, or failing that from the rims' circles), and records
+the page it came from. Each car is looked up once, since every lookup uses a
+CarsXE credit. Check a found photo's usage rights before relying on it.
+
+```bash
+npm run find-photos                       # every car without a photo
+npm run find-photos -- --force 3          # look again for car #3, replacing its photo
+npm run find-photos -- --save-to /tmp/p 3 # also keep every suggestion, to see why one was skipped
+```
+
+Uploading a photo in the car form still works, and replaces a found one.
+
+A car with no photo (none found, or no CarsXE key) drives in as an outline
+of its body style instead: coupe, convertible, SUV or sedan, read from its
+make, model and trim (`src/lib/outlines.ts`), with an "Add a car photo" link
+under it. The outlines are `public/outlines/*.svg`, drawn by
+`scripts/draw-outlines.py`.
 
 ## Home page
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { HomeCar } from "@/lib/home";
+import { drawnCar } from "@/lib/outlines";
 import { CarSprite } from "./CarSprite";
 import { CarStats } from "./CarStats";
 import { ViewSwitch } from "./ViewSwitch";
@@ -16,7 +17,8 @@ export function CarList({ cars }: { cars: HomeCar[] }) {
         <ViewSwitch current="list" />
       </div>
       {cars.map((car) => {
-        const photo = car.images.photo;
+        // The car's photo, or its body-style outline until it has one.
+        const photo = drawnCar(car);
         const logo = car.images.logo;
         const logoAspect = logo?.width && logo.height ? logo.height / logo.width : 0.47;
         return (
@@ -47,6 +49,11 @@ export function CarList({ cars }: { cars: HomeCar[] }) {
               )}
             </Link>
             <div className="car-row-body">
+              {car.outline && photo === car.outline && (
+                <p className="car-row-outline-note">
+                  <Link href={`/watch/${car.id}/edit`}>Add a car photo</Link> to see the real car here.
+                </p>
+              )}
               <CarStats car={car} />
               <Link href={`/watch/${car.id}`} className="pill-button primary">
                 View listings &amp; market

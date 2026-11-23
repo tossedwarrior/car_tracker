@@ -2,16 +2,19 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { isValidEmail, normalizeEmail, safeNext, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { isDevServer, sendSignInLink } from "@/lib/email";
+import { syncPerson, trackPerson } from "@/lib/people";
 import { createLoginToken, endSession, findOrCreateUser, redeemLoginToken } from "@/lib/users";
 
 export interface SignInState {
   error?: string;
   /** Set once the link is on its way. */
   sentTo?: string;
-  /** Development only, while no email service is set up: the link itself. */
+  /** Development only, when the email didn't go: the link itself, and why it didn't. */
   devLink?: string;
+  emailProblem?: "not_set_up" | "failed";
   email?: string;
 }
 
@@ -33,7 +36,14 @@ export async function requestSignIn(_prev: SignInState, form: FormData): Promise
   const email = normalizeEmail(form.get("email"));
   if (!isValidEmail(email)) return { error: "Enter your email address, like you@example.com.", email };
 
-  const { user } = await findOrCreateUser(email);
+  const { user, created } = await findOrCreateUser(email);
+  // Customer.io calls that nothing waits on run after the response is sent.
+  if (created) {
+    after(async () => {
+      await syncPerson(user.id);
+      await trackPerson(user.id, "signed_up");
+    });
+  }
   const token = await createLoginToken(user.id);
   if (!token) return { error: "That's a lot of sign-in links. Use the latest one, or try again in an hour.", email };
 
@@ -42,14 +52,21 @@ export async function requestSignIn(_prev: SignInState, form: FormData): Promise
   if (next !== "/") params.set("next", next);
   const url = `${await siteUrl()}/login/verify?${params}`;
 
-  const { delivered } = await sendSignInLink({ email, url });
-  return { sentTo: email, devLink: !delivered && isDevServer() ? url : undefined };
+  const { delivered, problem } = await sendSignInLink({ userId: user.id, email, url });
+  if (!delivered && !isDevServer()) {
+    return { error: "We couldn't send the email just now. Try again in a minute.", email };
+  }
+  return { sentTo: email, ...(delivered ? {} : { devLink: url, emailProblem: problem }) };
 }
 
 /** The button on the link's page: use the token, start a session, go on. */
 export async function completeSignIn(form: FormData) {
   const result = await redeemLoginToken(String(form.get("token") ?? ""));
   if (!result) redirect("/login/verify?expired=1");
+  after(async () => {
+    await syncPerson(result.user.id);
+    await trackPerson(result.user.id, "signed_in");
+  });
 
   const h = await headers();
   const secure = h.get("x-forwarded-proto") === "https" || !!process.env.APP_URL?.startsWith("https:");

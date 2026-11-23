@@ -34,7 +34,7 @@ report for every car on their list.
 - The owner (`OWNER_EMAIL`) keeps API usage, backups, sold-price pulls and
   listing fixes, and takes over the pre-accounts data on first sign-in.
 
-### 2. Refresh on a schedule
+### 2. Refresh on a schedule (to do)
 
 New-listing emails only make sense if the app looks for new listings without
 anyone pressing Refresh. Add `npm run refresh` as a daily cron job (cPanel
@@ -43,47 +43,89 @@ Auto.dev's 1,000 calls/month allows about 33 a day, so roughly 5 pages per
 search for 6 searches, fewer per search as people add cars. The refresh already
 spreads each source's remaining calls across cars (`src/jobs/budget.ts`).
 
-### 3. Customer.io: data in
+### 3. Customer.io: data in — code done (Nov 23), needs your keys
 
-Done the way a customer would: create the workspace, find the keys, read the docs.
+Each part switches on when its key is in `.env` (see `.env.example`):
 
-- **Browser (JavaScript):** `identify(user.id, { email, ... })` on every signed-in
-  page; `page` on each route; `track` for browser events.
-- **Server (Node):** account and refresh events, since no browser is open when a
-  refresh finds a new car.
-- **Transactional API:** the sign-in link, replacing the stub in `src/lib/email.ts`.
+| Key | Turns on |
+| --- | --- |
+| `NEXT_PUBLIC_CUSTOMERIO_WRITE_KEY` | Browser: `identify` when signed in, `page` on every route, `listing_clicked` on listing links |
+| `CUSTOMERIO_PIPELINES_KEY` | Server: profiles and events below |
+| `CUSTOMERIO_APP_API_KEY` + `CUSTOMERIO_SIGNIN_MESSAGE` | The sign-in link email (otherwise the page shows the link on a dev server) |
 
-Profile attributes (sent on sign-in and after each refresh):
+Profile attributes (on sign-up, sign-in, any change, and after each refresh):
 
 | Attribute | Example |
 | --- | --- |
-| `email`, `name`, `created_at` | |
+| `email`, `name` | |
+| `created_at`, `last_sign_in_at` | Unix seconds |
 | `listing_emails`, `monthly_report` | `true` |
+| `currency` | `CAD` |
 | `cars_followed` | `2` |
-| `cars` | `[{ "title": "Ferrari 458 Italia", "years": "2011–2015", "url": "…/watch/1", "for_sale": 20, "lowest": "US$171,000", "trend": "cooling", "trend_change": -0.04, "typical_sale": "US$198,000", "new_this_month": 3 }]` |
+| `cars` | `[{ "id": 1, "title": "Ferrari 458 Italia", "years": "2011 - 2015", "url": "…/watch/1", "for_sale": 20, "new_this_week": 3, "lowest": "CA$238,000", "trend": "cooling", "trend_percent": -4.2 }]` |
+| `deleted_at` | Unix seconds, once they delete their account |
 
 Events:
 
 | Event | From | Properties |
 | --- | --- | --- |
 | `signed_up`, `signed_in` | server | — |
-| `car_followed`, `car_unfollowed` | server | car title, years, target |
-| `new_listing` | server (refresh) | car title, listing year/trim, price, mileage, location, listing URL, car page URL |
-| `price_dropped`, `under_target` | server (refresh) | as above, plus old price / target |
-| `listing_viewed`, `market_trend_viewed` | browser | car, listing |
+| `car_followed` | server | `car_id`, `car`, `years`, `target_price`, `target_currency` |
+| `car_unfollowed` | server | `car_id`, `car` |
+| `new_listings` | server, after a refresh | `count`, `cars`, `listings` (below). Only for people with `listing_emails` on. |
 | `account_deleted` | server | — |
+| `listing_clicked` | browser | `car`, `car_id`, `listing_id`, `year`, `price`, `source` |
 
-### 4. Customer.io: messages
+Each of `new_listings.listings`: `car`, `car_url`, `title` ("2013 Ferrari 458
+Italia Spider"), `year`, `price` (in their currency), `original_price` (the
+seller's, when it's another currency), `mileage`, `location`, `seller`, `url`,
+`under_target`.
 
-1. **Transactional — sign-in link.**
-2. **Campaign — new listing:** triggered by `new_listing`, filtered to
-   `listing_emails = true`. Several new cars from one refresh: send one
-   email that lists them, using a short delay and batching, or have the app
-   send one `new_listings` event per car per refresh with the cars in an array.
-3. **Broadcast — monthly market report:** on the 1st, to the segment
-   `monthly_report = true` and `cars_followed > 0`, designed in Design Studio,
-   looping over `customer.cars` in Liquid.
-4. Bonus: in-app "Set a target price"; churn feedback email.
+`car_url` and `cars[].url` are full links only when `APP_URL` is set.
+
+### 4. Customer.io: messages (you)
+
+1. **Transactional — sign-in link.** Trigger name `sign_in_link`. Turn on
+   "Protect sensitive data". The app sends `tracked: false`.
+
+   ```liquid
+   <p>Here's your link to sign in to Poster Wall:</p>
+   <p><a href="{{trigger.signin_url}}">Sign in</a></p>
+   <p>It works once, for the next {{trigger.expires_minutes}} minutes. If you didn't ask for it, ignore this email.</p>
+   ```
+
+2. **Campaign — new listings.** Trigger: event `new_listings`.
+
+   Subject:
+   ```liquid
+   {{event.count}} new {% if event.count == 1 %}listing{% else %}listings{% endif %} for your {{event.cars | join: ", "}}
+   ```
+
+   Body:
+   ```liquid
+   {% for l in event.listings %}
+   <h3><a href="{{l.url}}">{{l.title}}</a></h3>
+   <p>{{l.price}}{% if l.original_price %} ({{l.original_price}}){% endif %} · {{l.mileage}} · {{l.location}}
+   {% if l.under_target %}<strong>Under your target</strong>{% endif %}</p>
+   <p><a href="{{l.car_url}}">See every {{l.car}} for sale</a></p>
+   {% endfor %}
+   ```
+
+3. **Broadcast — monthly market report** (Design Studio). Audience: segment
+   `monthly_report` is `true` and `cars_followed` is greater than 0. Schedule
+   for the 1st of each month.
+
+   ```liquid
+   {% for car in customer.cars %}
+   <h2>{{car.title}} <small>{{car.years}}</small></h2>
+   <p>{{car.for_sale}} for sale{% if car.lowest %}, from {{car.lowest}}{% endif %}.
+   {% if car.trend %}The market is {{car.trend}}{% if car.trend_percent %} ({{car.trend_percent}}% over 3 months){% endif %}.{% endif %}</p>
+   <p><a href="{{car.url}}">See listings and the market trend</a></p>
+   {% endfor %}
+   ```
+
+4. Bonus: in-app "Set a target price"; churn email triggered by
+   `account_deleted` (the profile stays, emptied, so it can still go out).
 
 ### 5. Hosting and demo
 

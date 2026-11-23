@@ -15,6 +15,20 @@
       "when": 1795206582743,
       "tag": "0001_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1795448710845,
+      "tag": "0002_display_currency",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1795461103948,
+      "tag": "0003_car_photo_lookup",
+      "breakpoints": true
     }
   ]
 }

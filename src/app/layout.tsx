@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { CustomerioAnalytics } from "@/components/CustomerioAnalytics";
 import { NavLinks } from "@/components/NavLinks";
 import { countUnseenAlerts } from "@/jobs/alerts";
 import { getCurrentUser } from "@/lib/current-user";
@@ -30,6 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </div>
         </header>
         <main>{children}</main>
+        <CustomerioAnalytics user={user && { id: user.id, email: user.email }} />
       </body>
     </html>
   );

@@ -6,6 +6,7 @@ import { formatYears, watchTitle } from "./format";
 import type { Rates } from "./fx";
 import { getCarImages, type CarImages } from "./images";
 import { showMoney, type Shown } from "./money";
+import { outlineFor, type Outline } from "./outlines";
 import { listWatches } from "./watchlist";
 
 /** "New" listings on the home page: first seen in the last week. */
@@ -20,6 +21,8 @@ export interface HomeCar {
   lowest: Shown | null;
   trend: { label: TrendLabel; change: number } | null;
   images: CarImages;
+  /** No photo yet: a body-style outline to drive instead. */
+  outline: Outline | null;
 }
 
 /** Everything the home page shows for each car someone follows, in watchlist order. */
@@ -41,6 +44,7 @@ export async function getHomeCars(
         .map((l) => showMoney(rates, display, l.price, l.currency))
         .sort((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity))[0] ?? null;
     const { trend } = await getMarketHistory(w, rates, now);
+    const images = await getCarImages(w.id);
     cars.push({
       id: w.id,
       title: watchTitle(w),
@@ -49,8 +53,10 @@ export async function getHomeCars(
       newListings: Number(newListings),
       lowest,
       trend: trend.label && trend.change != null ? { label: trend.label, change: trend.change } : null,
-      images: await getCarImages(w.id),
+      images,
+      outline: images.photo ? null : outlineFor(w),
     });
   }
   return cars;
 }
+

@@ -46,6 +46,8 @@ export const users = mysqlTable(
     // Email preferences.
     listingEmails: boolean("listing_emails").notNull().default(true),
     monthlyReport: boolean("monthly_report").notNull().default(true),
+    // The CAD/USD switch, saved so emails show prices the same way.
+    displayCurrency: varchar("display_currency", { length: 16, enum: currencies }).notNull().default("CAD"),
     createdAt: createdAt(),
     lastSignInAt: date("last_sign_in_at"),
   },
@@ -109,6 +111,9 @@ export const watchlist = mysqlTable("watchlist", {
   lastRefreshed: date("last_refreshed"),
   // When auction results were last pulled for this car (ISO timestamp).
   lastSoldPull: date("last_sold_pull"),
+  // When a car photo was last looked for online (src/lib/car-photo.ts), so
+  // each search spends a lookup credit once, not on every follow.
+  photoLookupAt: date("photo_lookup_at"),
   createdAt: createdAt(),
 });
 
@@ -332,6 +337,9 @@ export const watchImages = mysqlTable(
     // see WheelSpec in src/lib/wheels.ts), and whether the car faces right.
     wheels: text("wheels"),
     facesRight: boolean("faces_right").notNull().default(false),
+    // Found online rather than uploaded: the page it came from, for credit and
+    // to check its usage rights.
+    sourceUrl: text("source_url"),
     updatedAt: date("updated_at").notNull(),
   },
   (t) => [uniqueIndex("watch_images_watch_kind_uq").on(t.watchId, t.kind)],

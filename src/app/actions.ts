@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireAdmin, requireUser } from "@/lib/current-user";
 import {
   addCar,
@@ -15,6 +16,17 @@ import {
 } from "@/lib/watchlist";
 
 // Every action checks who's signed in: the proxy only checks that a cookie exists.
+// Customer.io updates (src/lib/people.ts) run in after(), once the response is
+// sent, so a slow Customer.io never slows the app down.
+
+/** Tell Customer.io about a change to someone: an event, then their updated profile. */
+function sendToCustomerio(userId: number, event?: string, properties?: Record<string, unknown>) {
+  after(async () => {
+    const { syncPerson, trackPerson } = await import("@/lib/people");
+    if (event) await trackPerson(userId, event, properties);
+    await syncPerson(userId);
+  });
+}
 
 export interface WatchFormState {
   errors: FormErrors;
@@ -47,10 +59,20 @@ export async function saveWatch(
   let watchId: number;
   if (id) {
     watchId = await updateCar(user, id, parsed.values);
+    sendToCustomerio(user.id);
   } else {
     const added = await addCar(user, parsed.values);
     if ("error" in added) return { errors: { form: added.error }, values: values() };
     watchId = added.watchId;
+    const { watchTitle, formatYears } = await import("@/lib/format");
+    const v = parsed.values;
+    sendToCustomerio(user.id, "car_followed", {
+      car_id: watchId,
+      car: watchTitle(v),
+      years: formatYears(v.yearMin, v.yearMax),
+      target_price: v.targetPrice,
+      target_currency: v.targetPrice ? v.targetCurrency : null,
+    });
   }
 
   // A car's images are shared by everyone who follows it. Only the owner, or
@@ -68,6 +90,24 @@ export async function saveWatch(
     });
   }
 
+  // No photo yet: look for one online once the page has responded (it can
+  // take a few seconds). Does nothing without CARSXE_API_KEY, or if this car
+  // has already been looked up.
+  if (!photo.image) {
+    const id = watchId;
+    after(async () => {
+      const { lookUpCarPhoto } = await import("@/lib/car-photo");
+      try {
+        const result = await lookUpCarPhoto(id);
+        if (result.status === "saved" || result.status === "none_usable") {
+          console.log(`[car photo] car #${id}: ${result.status}`, "reasons" in result ? result.reasons : result.source);
+        }
+      } catch (e) {
+        console.error(`[car photo] car #${id}: lookup failed:`, (e as Error).message);
+      }
+    });
+  }
+
   revalidatePath("/");
   redirect(`/watch/${watchId}`);
 }
@@ -75,7 +115,12 @@ export async function saveWatch(
 export async function removeWatch(form: FormData) {
   const user = await requireUser();
   const id = Number(form.get("id"));
-  if (id) await unfollow(user.id, id);
+  const watch = id ? await getWatch(user.id, id) : undefined;
+  if (watch) {
+    await unfollow(user.id, id);
+    const { watchTitle } = await import("@/lib/format");
+    sendToCustomerio(user.id, "car_unfollowed", { car_id: id, car: watchTitle(watch) });
+  }
   revalidatePath("/");
   redirect("/");
 }
@@ -128,11 +173,20 @@ export async function pullSold(_prev: SoldPullState, form: FormData): Promise<So
 export async function setDisplayCurrency(form: FormData) {
   const { cookies } = await import("next/headers");
   const { DISPLAY_COOKIE, parseDisplayCurrency } = await import("@/lib/money");
-  (await cookies()).set(DISPLAY_COOKIE, parseDisplayCurrency(String(form.get("currency"))), {
+  const currency = parseDisplayCurrency(String(form.get("currency")));
+  (await cookies()).set(DISPLAY_COOKIE, currency, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365 * 5,
     sameSite: "lax",
   });
+  // Saved on the account too, so emails show prices the same way.
+  const { getCurrentUser } = await import("@/lib/current-user");
+  const user = await getCurrentUser();
+  if (user && user.displayCurrency !== currency) {
+    const { setDisplayCurrency: save } = await import("@/lib/users");
+    await save(user.id, currency);
+    sendToCustomerio(user.id);
+  }
   revalidatePath("/", "layout");
 }
 
@@ -186,6 +240,7 @@ export async function savePreferences(_prev: PreferencesState, form: FormData): 
     listingEmails: form.get("listingEmails") === "on",
     monthlyReport: form.get("monthlyReport") === "on",
   });
+  sendToCustomerio(user.id);
   revalidatePath("/settings");
   return { saved: true };
 }
@@ -193,9 +248,12 @@ export async function savePreferences(_prev: PreferencesState, form: FormData): 
 export async function deleteAccount() {
   const { cookies } = await import("next/headers");
   const { deleteUser } = await import("@/lib/users");
+  const { recordAccountDeleted } = await import("@/lib/people");
   const { SESSION_COOKIE } = await import("@/lib/auth");
   const user = await requireUser();
   await deleteUser(user.id);
+  // Customer.io keeps the (emptied) profile, so the churn email can reach them.
+  after(() => recordAccountDeleted(user));
   (await cookies()).delete(SESSION_COOKIE);
   redirect("/login");
 }

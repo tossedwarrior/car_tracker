@@ -9,7 +9,7 @@ import { maxRefreshCalls } from "@/jobs/refresh";
 import { getSoldResults } from "@/jobs/sold";
 import type { Currency } from "@/db/schema";
 import { getDisplayCurrency } from "@/lib/display-currency";
-import { daysSince, formatKm } from "@/lib/format";
+import { daysSince, formatKm, watchTitle } from "@/lib/format";
 import { Rates } from "@/lib/fx";
 import { isUnderTarget, showMoney } from "@/lib/money";
 import {
@@ -150,7 +150,21 @@ function ListingRow({
       </div>
       <div className="cell-car" role="cell">
         {l.url ? (
-          <a className="car-link" href={l.url} target="_blank" rel="noopener noreferrer">
+          <a
+            className="car-link"
+            href={l.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-track="listing_clicked"
+            data-track-props={JSON.stringify({
+              car: watchTitle(watch),
+              car_id: watch.id,
+              listing_id: l.id,
+              year: l.year,
+              price: shown.main,
+              source: l.source,
+            })}
+          >
             {car}
           </a>
         ) : (

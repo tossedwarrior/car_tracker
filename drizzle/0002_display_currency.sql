@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `display_currency` varchar(16) DEFAULT 'CAD' NOT NULL;
