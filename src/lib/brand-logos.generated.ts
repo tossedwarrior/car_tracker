@@ -14,6 +14,9 @@ export const BRAND_SLUGS: Record<string, string> = {
   "chevy": "chevrolet",
   "chrysler": "chrysler",
   "citroen": "citroen",
+  "dacia": "dacia",
+  "ds": "dsautomobiles",
+  "dsautomobiles": "dsautomobiles",
   "ferrari": "ferrari",
   "fiat": "fiat",
   "ford": "ford",
@@ -23,6 +26,7 @@ export const BRAND_SLUGS: Record<string, string> = {
   "jeep": "jeep",
   "kia": "kia",
   "koenigsegg": "koenigsegg",
+  "lada": "lada",
   "lamborghini": "lamborghini",
   "lucid": "lucid",
   "maserati": "maserati",
@@ -99,6 +103,14 @@ export const LOGO_SIZES: Record<string, { width: number; height: number }> = {
     "width": 1000,
     "height": 1235
   },
+  "dacia": {
+    "width": 1000,
+    "height": 280
+  },
+  "dsautomobiles": {
+    "width": 1000,
+    "height": 1224
+  },
   "ferrari": {
     "width": 1000,
     "height": 1389
@@ -134,6 +146,10 @@ export const LOGO_SIZES: Record<string, { width: number; height: number }> = {
   "koenigsegg": {
     "width": 1000,
     "height": 1386
+  },
+  "lada": {
+    "width": 1000,
+    "height": 392
   },
   "lamborghini": {
     "width": 1000,

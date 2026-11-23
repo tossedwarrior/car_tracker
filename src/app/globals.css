@@ -864,19 +864,32 @@ header.site { position: relative; z-index: 20; }
 /* No logo for this make: its name, set large and faint in the logo's place,
    sized to fit its width whatever its length. */
 .scene-logo-text {
-  height: calc(var(--logo-w) * 0.22);
-  /* Standing on the car's roofline, overlapping it a little: an emblem half
-     hidden by the car still reads, a word doesn't. */
-  top: calc(var(--stage-h) * var(--ground-f) - var(--car-w) * var(--aspect) * 0.85 - var(--logo-w) * 0.22);
-  align-items: flex-end;
-  display: flex; justify-content: center;
-  font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; line-height: 0.8;
-  font-size: min(calc(var(--logo-w) * 0.2), calc(var(--logo-w) * 1.6 / var(--chars)));
-  color: #000;
+  /* A band as wide as the logo would be, the name sized to fill it. */
+  aspect-ratio: 100 / 22; container-type: inline-size;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.scene-logo-text span {
+  font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; line-height: 0.8; color: #000;
+  font-size: min(20cqw, calc(160cqw / var(--chars)));
 }
 .car-row-panel { container-type: inline-size; }
 .car-row-logo-text {
   position: absolute; left: 50%; top: 12%; transform: translateX(-50%); opacity: 0.05;
   font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; line-height: 1; color: #000;
   font-size: min(16cqw, calc(130cqw / var(--chars)));
+}
+
+/* Settings: brand logos */
+.make-logos { display: grid; gap: 16px; margin-top: 24px; }
+.make-logo-row { display: grid; grid-template-columns: 96px 1fr auto auto; gap: 20px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.make-logo-preview { width: 96px; height: 56px; display: grid; place-items: center; background: #eef2f3; overflow: hidden; }
+.make-logo-preview img { max-width: 80%; max-height: 80%; }
+.make-logo-preview span { font-weight: 700; font-size: 14px; color: #9aa3a9; white-space: nowrap; }
+.make-logo-info p { margin: 0; }
+.make-logo-form { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.make-logo-form input[type="file"] { font-size: 14px; max-width: 220px; }
+@media (max-width: 700px) {
+  .make-logo-row { grid-template-columns: 72px 1fr; }
+  .make-logo-preview { width: 72px; height: 44px; }
+  .make-logo-form, .make-logo-row > form:last-child { grid-column: 1 / -1; }
 }

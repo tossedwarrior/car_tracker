@@ -114,9 +114,11 @@ under it. The outlines are `public/outlines/*.svg`, drawn by
 
 Behind each car is a faint logo: the one uploaded for it, else its brand's
 emblem (`public/logos/`, copied from [Simple Icons](https://simpleicons.org)
-by `npm run brand-logos`), else the make's name set large. Simple Icons has
-no Mercedes-Benz, Lotus, Pagani or Jaguar emblem; add others in
-`scripts/brand-logos.ts`.
+by `npm run brand-logos`), else the make's name set large. For brands Simple
+Icons doesn't have (Mercedes-Benz, Lotus, Pagani, Jaguar…), or to use a
+better logo, the owner uploads one per make in **Settings → Brand logos**;
+it's used for every car of that make (`src/lib/make-logos.ts`). Order: the
+car's own logo, the make's upload, the emblem, the name.
 
 ## Home page
 

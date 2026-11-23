@@ -29,6 +29,13 @@
       "when": 1795461103948,
       "tag": "0003_car_photo_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1795464026792,
+      "tag": "0004_make_logos",
+      "breakpoints": true
     }
   ]
 }

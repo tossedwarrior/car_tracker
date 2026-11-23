@@ -6,7 +6,8 @@ import { formatYears, watchTitle } from "./format";
 import type { Rates } from "./fx";
 import { getCarImages, type CarImages } from "./images";
 import { showMoney, type Shown } from "./money";
-import { brandLogo, type BrandLogo } from "./brand-logos";
+import type { BrandLogo } from "./brand-logos";
+import { getMakeLogos, logoForMake } from "./make-logos";
 import { outlineFor, type Outline } from "./outlines";
 import { listWatches } from "./watchlist";
 
@@ -25,7 +26,7 @@ export interface HomeCar {
   images: CarImages;
   /** No photo yet: a body-style outline to drive instead. */
   outline: Outline | null;
-  /** No logo uploaded: the brand's emblem, if there's one for this make. */
+  /** No logo uploaded for the car: its make's uploaded logo, else the brand's emblem, if any. */
   brandLogo: BrandLogo | null;
 }
 
@@ -38,6 +39,7 @@ export async function getHomeCars(
 ): Promise<HomeCar[]> {
   const since = new Date(now.getTime() - NEW_DAYS * 86_400_000).toISOString().slice(0, 10);
   const cars: HomeCar[] = [];
+  const makeLogos = await getMakeLogos();
   for (const w of await listWatches(userId)) {
     const [{ n: newListings }] = await db
       .select({ n: sql<number>`count(*)` })
@@ -60,7 +62,7 @@ export async function getHomeCars(
       trend: trend.label && trend.change != null ? { label: trend.label, change: trend.change } : null,
       images,
       outline: images.photo ? null : outlineFor(w),
-      brandLogo: images.logo ? null : brandLogo(w.make),
+      brandLogo: images.logo ? null : logoForMake(w.make, makeLogos),
     });
   }
   return cars;

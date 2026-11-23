@@ -13,6 +13,15 @@ export function ownerEmail(): string | null {
   return normalizeEmail(process.env.OWNER_EMAIL) || null;
 }
 
+/**
+ * The owner is whoever OWNER_EMAIL names right now, so changing it takes
+ * effect on the next page load, even for an account made before.
+ */
+function withOwner(user: User): User {
+  const owner = ownerEmail();
+  return owner && user.email === owner ? { ...user, isAdmin: true } : user;
+}
+
 export async function getUser(id: number): Promise<User | undefined> {
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row;
@@ -67,7 +76,7 @@ export async function peekLoginToken(token: string, now = new Date()): Promise<U
       ),
     )
     .limit(1);
-  return row?.user ?? null;
+  return row?.user ? withOwner(row.user) : null;
 }
 
 /**
@@ -112,7 +121,7 @@ export async function getSessionUser(token: string | undefined, now = new Date()
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(and(eq(sessions.tokenHash, await hashToken(token)), gt(sessions.expiresAt, now.toISOString())))
     .limit(1);
-  return row?.user ?? null;
+  return row?.user ? withOwner(row.user) : null;
 }
 
 export async function endSession(token: string | undefined) {

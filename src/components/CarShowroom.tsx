@@ -96,12 +96,53 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
     }
   }, [cars]);
 
+  /**
+   * Centre each logo in the open sky between the car's name and the top of
+   * the car, shrinking it if it wouldn't fit. Measured, since both depend on
+   * the screen, the name's length and the car's shape. Runs on load and
+   * resize, not on scroll (scrolling only moves things sideways and fades them).
+   */
+  const placeLogos = useCallback(() => {
+    const ground = stage.current?.querySelector<HTMLElement>(".showroom-ground");
+    if (!ground) return;
+    for (const p of parts.current) {
+      const logo = p.logo;
+      const heading = p.text?.querySelector<HTMLElement>(".scene-heading");
+      if (!logo || !heading) continue;
+      logo.style.width = "";
+      logo.style.top = "";
+      logo.style.marginTop = "0";
+      // Offsets ignore the scroll transforms; the logo, text and ground
+      // layers all start at the stage's top.
+      const above = heading.offsetTop + heading.offsetHeight;
+      // Clear of the car, so none of the logo is hidden; on a screen too
+      // short for that, down to the horizon, the car covering its foot.
+      const clear = Math.min(ground.offsetTop, p.car?.offsetTop ?? ground.offsetTop);
+      const below = clear - above >= 120 ? clear : ground.offsetTop;
+      const room = below - above;
+      if (room <= 0) continue;
+      // An image's height before it loads: its width times its proportions.
+      const aspect = Number(logo.dataset.aspect) || logo.offsetHeight / logo.offsetWidth;
+      let height = logo.offsetWidth * aspect;
+      const fit = room * 0.8;
+      if (height > fit) {
+        logo.style.width = `${fit / aspect}px`;
+        height = fit;
+      }
+      logo.style.top = `${above + (room - height) / 2}px`;
+    }
+  }, []);
+
   useEffect(() => {
     let frame = 0;
     const schedule = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(update);
+      frame = requestAnimationFrame(() => {
+        placeLogos();
+        update();
+      });
     };
+    placeLogos();
     update();
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule);
@@ -114,7 +155,7 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
       window.removeEventListener("resize", schedule);
       sizes.disconnect();
     };
-  }, [update]);
+  }, [update, placeLogos]);
 
   const goTo = (i: number) => {
     const el = section.current;
@@ -152,7 +193,12 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
               style={{ "--aspect": aspect, "--logo-aspect": logoAspect } as React.CSSProperties}
             >
               {logo ? (
-                <div ref={(el) => void (parts.current[i].logo = el)} className="scene-logo" aria-hidden="true">
+                <div
+                  ref={(el) => void (parts.current[i].logo = el)}
+                  className="scene-logo"
+                  data-aspect={logoAspect}
+                  aria-hidden="true"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={logo.url} alt="" />
                 </div>
@@ -160,10 +206,11 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
                 <div
                   ref={(el) => void (parts.current[i].logo = el)}
                   className="scene-logo scene-logo-text"
+                  data-aspect={TEXT_LOGO_ASPECT}
                   style={{ "--chars": car.make.length } as React.CSSProperties}
                   aria-hidden="true"
                 >
-                  {car.make}
+                  <span>{car.make}</span>
                 </div>
               )}
 

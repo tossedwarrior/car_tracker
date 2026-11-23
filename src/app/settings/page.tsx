@@ -4,9 +4,11 @@ import { checkRuns, watchlist } from "@/db/schema";
 import { AccountSettings } from "@/components/AccountSettings";
 import { BackupRestore } from "@/components/BackupRestore";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
+import { MakeLogos } from "@/components/MakeLogos";
 import { callsPerWatch } from "@/jobs/budget";
 import { requireUser } from "@/lib/current-user";
 import { getDisplayCurrency } from "@/lib/display-currency";
+import { listMakes } from "@/lib/make-logos";
 import { allSources, hasApiKey } from "@/sources";
 import { getUsage, monthKey } from "@/sources/usage";
 
@@ -108,6 +110,17 @@ export default async function SettingsPage() {
               car; MarketCheck searches 100 miles around Toronto, Montreal, Vancouver and Calgary (one call each, more
               if a city has over 50); Old Cars Data returns the latest 20 sold auctions per update on the free plan.
             </p>
+          </section>
+
+          <section>
+            <h2>Brand logos</h2>
+            <p className="muted small">
+              The faint logo behind each car on the home page. Cars without a logo of their own show their
+              make&apos;s: one uploaded here, else the brand&apos;s emblem from Simple Icons, else the make&apos;s
+              name. A logo uploaded here is used for every car of that make. Solid, single-colour emblems on a
+              transparent background work best (SVG or PNG).
+            </p>
+            <MakeLogos makes={await listMakes()} />
           </section>
 
           <section>

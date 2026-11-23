@@ -131,3 +131,13 @@ describe("deleteUser", () => {
     ]);
   });
 });
+
+describe("the owner", () => {
+  it("is whoever OWNER_EMAIL names now, even for an account made before", async () => {
+    const user = await makeUser({ email: "later.owner@example.com" });
+    const { sessionToken } = (await redeemLoginToken((await createLoginToken(user.id, now))!, now))!;
+    expect((await getSessionUser(sessionToken, now))?.isAdmin).toBe(false);
+    vi.stubEnv("OWNER_EMAIL", "Later.Owner@example.com");
+    expect((await getSessionUser(sessionToken, now))?.isAdmin).toBe(true);
+  });
+});

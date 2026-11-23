@@ -344,3 +344,25 @@ export const watchImages = mysqlTable(
   },
   (t) => [uniqueIndex("watch_images_watch_kind_uq").on(t.watchId, t.kind)],
 );
+
+/**
+ * A logo uploaded once for a make, shown behind every car of that make that
+ * has no logo of its own (src/lib/make-logos.ts). Keyed like brand emblems:
+ * "Rolls-Royce" and "rolls royce" are both "rollsroyce".
+ */
+export const makeLogos = mysqlTable(
+  "make_logos",
+  {
+    id: id(),
+    makeKey: varchar("make_key", { length: 100 }).notNull(),
+    // As first typed, for showing in Settings.
+    make: varchar("make", { length: 100 }).notNull(),
+    contentType: varchar("content_type", { length: 64 }).notNull(),
+    data: longblob("data").notNull(),
+    fileName: text("file_name"),
+    width: int("width"),
+    height: int("height"),
+    updatedAt: date("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("make_logos_make_key_uq").on(t.makeKey)],
+);

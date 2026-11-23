@@ -257,3 +257,29 @@ export async function deleteAccount() {
   (await cookies()).delete(SESSION_COOKIE);
   redirect("/login");
 }
+
+export interface MakeLogoState {
+  error?: string;
+  saved?: boolean;
+}
+
+/** Settings > Brand logos: the owner uploads one logo for every car of a make. */
+export async function uploadMakeLogo(_prev: MakeLogoState, form: FormData): Promise<MakeLogoState> {
+  const { readImageUpload } = await import("@/lib/images");
+  const { saveMakeLogo } = await import("@/lib/make-logos");
+  await requireAdmin();
+  const make = String(form.get("make") ?? "").trim();
+  if (!make) return { error: "Which make?" };
+  const upload = await readImageUpload(form.get("logo"), "logo", { required: true });
+  if ("error" in upload) return { error: upload.error };
+  await saveMakeLogo(make, upload.image!);
+  revalidatePath("/", "layout");
+  return { saved: true };
+}
+
+export async function removeMakeLogo(form: FormData) {
+  const { deleteMakeLogo } = await import("@/lib/make-logos");
+  await requireAdmin();
+  await deleteMakeLogo(String(form.get("key") ?? ""));
+  revalidatePath("/", "layout");
+}
