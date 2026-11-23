@@ -6,6 +6,7 @@ import { formatYears, watchTitle } from "./format";
 import type { Rates } from "./fx";
 import { getCarImages, type CarImages } from "./images";
 import { showMoney, type Shown } from "./money";
+import { brandLogo, type BrandLogo } from "./brand-logos";
 import { outlineFor, type Outline } from "./outlines";
 import { listWatches } from "./watchlist";
 
@@ -14,6 +15,7 @@ const NEW_DAYS = 7;
 
 export interface HomeCar {
   id: number;
+  make: string;
   title: string;
   years: string;
   forSale: number;
@@ -23,6 +25,8 @@ export interface HomeCar {
   images: CarImages;
   /** No photo yet: a body-style outline to drive instead. */
   outline: Outline | null;
+  /** No logo uploaded: the brand's emblem, if there's one for this make. */
+  brandLogo: BrandLogo | null;
 }
 
 /** Everything the home page shows for each car someone follows, in watchlist order. */
@@ -47,6 +51,7 @@ export async function getHomeCars(
     const images = await getCarImages(w.id);
     cars.push({
       id: w.id,
+      make: w.make,
       title: watchTitle(w),
       years: formatYears(w.yearMin, w.yearMax).replace("–", " - "),
       forSale: w.activeCount,
@@ -55,6 +60,7 @@ export async function getHomeCars(
       trend: trend.label && trend.change != null ? { label: trend.label, change: trend.change } : null,
       images,
       outline: images.photo ? null : outlineFor(w),
+      brandLogo: images.logo ? null : brandLogo(w.make),
     });
   }
   return cars;

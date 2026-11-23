@@ -112,6 +112,12 @@ make, model and trim (`src/lib/outlines.ts`), with an "Add a car photo" link
 under it. The outlines are `public/outlines/*.svg`, drawn by
 `scripts/draw-outlines.py`.
 
+Behind each car is a faint logo: the one uploaded for it, else its brand's
+emblem (`public/logos/`, copied from [Simple Icons](https://simpleicons.org)
+by `npm run brand-logos`), else the make's name set large. Simple Icons has
+no Mercedes-Benz, Lotus, Pagani or Jaguar emblem; add others in
+`scripts/brand-logos.ts`.
+
 ## Home page
 
 An expanded view (one car at a time; scrolling drives the current car out to

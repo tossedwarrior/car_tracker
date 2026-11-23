@@ -19,6 +19,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "refresh": "tsx scripts/refresh.ts",
     "find-photos": "tsx scripts/find-photos.ts",
+    "brand-logos": "tsx scripts/brand-logos.ts",
     "mysql:start": "sh scripts/mysql-local.sh start",
     "mysql:stop": "sh scripts/mysql-local.sh stop",
     "mysql:status": "sh scripts/mysql-local.sh status",
@@ -45,6 +46,7 @@
     "better-sqlite3": "^13.0.3",
     "dotenv": "^18.0.8",
     "drizzle-kit": "^0.31.11",
+    "simple-icons": "16.37.0",
     "tsx": "^4.23.15",
     "typescript": "~5.9",
     "vitest": "^5.0.5"

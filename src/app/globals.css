@@ -860,3 +860,23 @@ header.site { position: relative; z-index: 20; }
 .checks { border: 0; padding: 0; margin: 0; display: grid; gap: 12px; }
 .checks legend { font-family: var(--font-serif), Georgia, serif; font-size: 18px; margin-bottom: 12px; padding: 0; }
 .checks label { display: flex; gap: 10px; align-items: baseline; }
+
+/* No logo for this make: its name, set large and faint in the logo's place,
+   sized to fit its width whatever its length. */
+.scene-logo-text {
+  height: calc(var(--logo-w) * 0.22);
+  /* Standing on the car's roofline, overlapping it a little: an emblem half
+     hidden by the car still reads, a word doesn't. */
+  top: calc(var(--stage-h) * var(--ground-f) - var(--car-w) * var(--aspect) * 0.85 - var(--logo-w) * 0.22);
+  align-items: flex-end;
+  display: flex; justify-content: center;
+  font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; line-height: 0.8;
+  font-size: min(calc(var(--logo-w) * 0.2), calc(var(--logo-w) * 1.6 / var(--chars)));
+  color: #000;
+}
+.car-row-panel { container-type: inline-size; }
+.car-row-logo-text {
+  position: absolute; left: 50%; top: 12%; transform: translateX(-50%); opacity: 0.05;
+  font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; line-height: 1; color: #000;
+  font-size: min(16cqw, calc(130cqw / var(--chars)));
+}

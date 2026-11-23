@@ -28,6 +28,9 @@ interface Parts {
   logo: HTMLDivElement | null;
 }
 
+/** A make's name in place of a logo: a band this tall for its width. */
+const TEXT_LOGO_ASPECT = 0.22;
+
 export function CarShowroom({ cars }: { cars: HomeCar[] }) {
   const section = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -138,19 +141,29 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
         {cars.map((car, i) => {
           // The car's photo, or its body-style outline until it has one.
           const photo = drawnCar(car);
-          const logo = car.images.logo;
+          // The uploaded logo, else the brand's emblem, else the make in type.
+          const logo = car.images.logo ?? car.brandLogo;
           const aspect = photo?.width && photo.height ? photo.height / photo.width : 0.32;
-          const logoAspect = logo?.width && logo.height ? logo.height / logo.width : 0.47;
+          const logoAspect = logo?.width && logo.height ? logo.height / logo.width : logo ? 0.47 : TEXT_LOGO_ASPECT;
           return (
             <div
               key={car.id}
               className="scene"
               style={{ "--aspect": aspect, "--logo-aspect": logoAspect } as React.CSSProperties}
             >
-              {logo && (
+              {logo ? (
                 <div ref={(el) => void (parts.current[i].logo = el)} className="scene-logo" aria-hidden="true">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={logo.url} alt="" />
+                </div>
+              ) : (
+                <div
+                  ref={(el) => void (parts.current[i].logo = el)}
+                  className="scene-logo scene-logo-text"
+                  style={{ "--chars": car.make.length } as React.CSSProperties}
+                  aria-hidden="true"
+                >
+                  {car.make}
                 </div>
               )}
 
