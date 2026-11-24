@@ -446,7 +446,12 @@ header.site nav a[aria-current="page"] { font-weight: 700; }
 /* ---------- Car drawn with turnable wheels ---------- */
 .car-sprite { position: relative; width: 100%; }
 .car-sprite-inner { position: relative; width: 100%; height: 100%; }
-.car-sprite img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
+/* Under the car: the photo is see-through around it, so the shadow shows. */
+.car-shadow { position: absolute; inset: 0; pointer-events: none; }
+.car-shadow > div { position: absolute; border-radius: 50%; }
+.car-shadow-body { background: radial-gradient(closest-side, rgb(14 18 22 / 0.72), rgb(14 18 22 / 0.6) 45%, rgb(14 18 22 / 0.3) 78%, rgb(14 18 22 / 0)); }
+.car-shadow-tyre { background: radial-gradient(closest-side, rgb(6 8 10 / 0.9), rgb(6 8 10 / 0.55) 55%, rgb(6 8 10 / 0)); }
+.car-sprite img { display: block; position: relative; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
 .car-wheel {
   position: absolute; aspect-ratio: 1; border-radius: 50%;
   background-repeat: no-repeat; will-change: transform; transform: rotate(0deg);

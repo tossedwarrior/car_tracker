@@ -20,6 +20,7 @@
     "refresh": "tsx scripts/refresh.ts",
     "find-photos": "tsx scripts/find-photos.ts",
     "brand-logos": "tsx scripts/brand-logos.ts",
+    "download-model": "tsx scripts/download-model.ts",
     "mysql:start": "sh scripts/mysql-local.sh start",
     "mysql:stop": "sh scripts/mysql-local.sh stop",
     "mysql:status": "sh scripts/mysql-local.sh status",

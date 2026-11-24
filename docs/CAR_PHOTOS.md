@@ -4,12 +4,14 @@ With `CARSXE_API_KEY` set, the app finds a photo for any car that has none
 and marks its wheels (see the README's "Car photos").
 
 When you choose a photo in the car form, the app prepares it straight away
-(`src/lib/car-photo.ts`, `prepareUpload`): it removes a simple background
-(a studio backdrop, or a wall above a floor, textured or not), trims what's
-left with a small background model (U²-Netp, `models/`) so strips of wall or
-floor stuck to the car go too, crops to the car and marks the wheels, and
+(`src/lib/car-photo.ts`, `prepareUpload`): BiRefNet, a background-removal
+model (`npm run download-model`, see `models/README.md`), cuts the car out,
+whatever is behind it. It then crops to the car and marks the wheels, and
 the form shows the result to check, with "Use my original instead" to undo.
-A busy background (a street, a showroom) is left as it is. Tick "The car in
+Where BiRefNet isn't downloaded, the app removes only a simple background
+(a studio backdrop, or a wall above a floor, textured or not) by colour,
+trimmed with the small U²-Netp model, and leaves a busy one (a street, a
+showroom) as it is. Tick "The car in
 this photo faces right" yourself if it does. The rest of this page is for
 preparing a photo by hand, when the automatic result isn't right.
 

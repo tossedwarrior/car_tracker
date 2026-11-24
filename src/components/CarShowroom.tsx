@@ -222,6 +222,7 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
                     height={photo.height}
                     wheels={photo.wheels}
                     facesRight={photo.facesRight}
+                    shadow
                     wheelRef={(el, k) => void (parts.current[i].wheels[k] = el)}
                   />
                 </div>

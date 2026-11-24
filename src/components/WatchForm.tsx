@@ -95,7 +95,7 @@ export function WatchForm({
           required={false}
           current={images.photo}
           error={e.photo}
-          hint="Optional. A side-on photo; on a simple background (a studio, or a wall and floor) we'll remove the background, crop it and mark the wheels for you. Facing left is best."
+          hint="Optional. A side-on photo; we'll remove the background, crop it and mark the wheels for you. Facing left is best."
           prepare={preparePhoto}
           onPreview={(url, wheels) => {
             setFoundWheels(wheels ?? null);

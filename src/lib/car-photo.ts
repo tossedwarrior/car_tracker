@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { watchImages, watchlist } from "@/db/schema";
 import { CARSXE_KEY_ENV, findCarImages, type CarImage, type FetchLike } from "@/sources/carsxe";
 import { MAX_IMAGE_BYTES, saveCarPhotoSettings, saveImage } from "./images";
-import type { WheelSpec } from "./wheels";
+import type { Wheel, WheelSpec } from "./wheels";
 
 // A car photo for the home page's drive-by, found online so nobody has to
 // prepare one: CarsXE suggests side-on photos (src/sources/carsxe.ts); this
@@ -289,21 +289,32 @@ async function wheelsIn(raw: Raw, box: Box): Promise<WheelSpec | null> {
   const { x0, y0, w, h } = box;
   const opaque = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) opaque[y * w + x] = alphaAt(raw, x0 + x, y0 + y) >= 128 ? 1 : 0;
-  const wheels = findWheels(opaque, w, h);
-  if (wheels) return wheels;
-  // A shadow under the car, or one tyre lower than the other: look for the
-  // rims instead, on a copy about 500 px wide.
+  const ground = findWheels(opaque, w, h);
+  // Also the rims, on a copy about 500 px wide: they mark the hubs exactly,
+  // and still work with a shadow under the car or one tyre lower.
   const small = Math.min(1, 500 / w);
   const sw = Math.round(w * small);
   const sh = Math.round(h * small);
   const { width: W, height: H, channels } = raw.info;
   const rgba = await sharp(raw.data, { raw: { width: W, height: H, channels } })
     .extract({ left: x0, top: y0, width: w, height: h })
-    .resize(sw, sh)
+    .resize(sw, sh, { fit: "fill" })
     .ensureAlpha()
     .raw()
     .toBuffer();
-  return findWheelsByCircles(rgba, sw, sh);
+  const rims = findWheelsByCircles(rgba, sw, sh);
+  if (!ground || !rims) return ground ?? rims;
+  // Both: where they agree on the hubs, the rims' hubs (they're exact) with
+  // the smaller size, so the turning circle never takes in the wheel arch;
+  // where they don't (a low bumper lip merged with a tyre's footprint), the
+  // rims. Whichever comes first that looks like a side-on car's wheels.
+  const agree = (a: Wheel, b: Wheel) => Math.abs(a.x - b.x) < 0.015;
+  const candidates: WheelSpec[] = [rims, ground];
+  if (agree(ground.front, rims.front) && agree(ground.rear, rims.rear)) {
+    const r = Math.min(ground.front.r, rims.front.r);
+    candidates.unshift({ front: { ...rims.front, r }, rear: { ...rims.rear, r } });
+  }
+  return candidates.find((c) => sideOnWheels(c, w, h)) ?? candidates[0];
 }
 
 /** The crop as a PNG at most MAX_WIDTH wide. */
@@ -314,7 +325,7 @@ async function exportPng(raw: Raw, box: Box) {
   const height = Math.round(box.h * scale);
   const data = await sharp(raw.data, { raw: { width: W, height: H, channels } })
     .extract({ left: box.x0, top: box.y0, width: box.w, height: box.h })
-    .resize(width, height)
+    .resize(width, height, { fit: "fill" })
     .png({ compressionLevel: 9 })
     .toBuffer();
   return { data, width, height };
@@ -395,7 +406,7 @@ export async function removeBackground(raw: Raw, model: Buffer | null = null): P
   const w = Math.max(8, Math.round(W * scale));
   const h = Math.max(8, Math.round(H * scale));
   const d = await sharp(raw.data, { raw: { width: W, height: H, channels: C } })
-    .resize(w, h)
+    .resize(w, h, { fit: "fill" })
     .blur(1.5)
     .removeAlpha()
     .raw()
@@ -438,7 +449,7 @@ export async function removeBackground(raw: Raw, model: Buffer | null = null): P
   // a strip of wall at the nose, a wedge of floor behind the bumper.
   if (model) {
     const small = await sharp(model, { raw: { width: W, height: H, channels: 1 } })
-      .resize(w, h, { kernel: "linear" })
+      .resize(w, h, { kernel: "linear", fit: "fill" })
       .extractChannel(0)
       .raw()
       .toBuffer();
@@ -558,7 +569,7 @@ export async function removeBackground(raw: Raw, model: Buffer | null = null): P
   // the background's colours: car; close: background), so the edge is as
   // sharp as the photo, not the small copy.
   const soft = await sharp(mask, { raw: { width: w, height: h, channels: 1 } })
-    .resize(W, H, { kernel: "linear" })
+    .resize(W, H, { kernel: "linear", fit: "fill" })
     .blur(Math.max(1, 1.2 / scale))
     // One channel back, not the three sharp would otherwise give.
     .extractChannel(0)
@@ -683,10 +694,157 @@ export async function modelMask(raw: Raw): Promise<Buffer | null> {
     mask[i] = Math.round(Math.max(0, Math.min(1, (m - 0.45) * 5)) * 255);
   }
   return sharp(mask, { raw: { width: S, height: S, channels: 1 } })
-    .resize(W, H, { kernel: "lanczos3" })
+    .resize(W, H, { kernel: "lanczos3", fit: "fill" })
     .extractChannel(0)
     .raw()
     .toBuffer();
+}
+
+// ---------- BiRefNet ----------
+
+/**
+ * BiRefNet lite (models/birefnet-lite.onnx, MIT; fetched by `npm run
+ * download-model`, see models/README.md): a model made for cutting objects
+ * out of photos. It does the whole job, busy backgrounds included, with
+ * clean edges. It's big: about 5 s and 7 GB of memory a photo, so only where
+ * it's been downloaded (a Mac, not a small shared host), one photo at a
+ * time. CAR_PHOTO_MODEL=u2netp or =off skips it.
+ */
+const BIREFNET_SIZE = 1024;
+let birefnet: Promise<Session | null> | undefined;
+// One run at a time: two at once would need twice the memory.
+let birefnetQueue: Promise<unknown> = Promise.resolve();
+
+async function loadBiRefNet(): Promise<Session | null> {
+  const choice = process.env.CAR_PHOTO_MODEL;
+  if (choice === "off" || choice === "u2netp") return null;
+  birefnet ??= (async () => {
+    const path = await import("node:path");
+    const fs = await import("node:fs");
+    const file = path.join(process.cwd(), "models/birefnet-lite.onnx");
+    if (!fs.existsSync(file)) return null;
+    try {
+      const { InferenceSession } = await import("onnxruntime-node");
+      return await InferenceSession.create(file, {
+        enableCpuMemArena: false,
+        enableMemPattern: false,
+        executionMode: "sequential",
+      });
+    } catch (e) {
+      console.warn("[car photo] BiRefNet not loaded, using the smaller model:", (e as Error).message);
+      return null;
+    }
+  })();
+  return birefnet;
+}
+
+/** BiRefNet's mask of what's the subject, 0–255 at full size; null without it. */
+async function birefnetMask(raw: Raw): Promise<Buffer | null> {
+  const model = await loadBiRefNet();
+  if (!model) return null;
+  const { Tensor } = await import("onnxruntime-node");
+  const { width: W, height: H, channels: C } = raw.info;
+  const S = BIREFNET_SIZE;
+  const rgb = await sharp(raw.data, { raw: { width: W, height: H, channels: C } })
+    .removeAlpha()
+    .resize(S, S, { fit: "fill", kernel: "linear" })
+    .raw()
+    .toBuffer();
+  // As its preprocessor says: 0–1, then ImageNet's mean and spread.
+  const mean = [0.485, 0.456, 0.406];
+  const spread = [0.229, 0.224, 0.225];
+  const input = new Float32Array(3 * S * S);
+  for (let i = 0; i < S * S; i++) {
+    for (let c = 0; c < 3; c++) input[c * S * S + i] = (rgb[i * 3 + c] / 255 - mean[c]) / spread[c];
+  }
+  const run = birefnetQueue.then(() => model.run({ [model.inputNames[0]]: new Tensor("float32", input, [1, 3, S, S]) }));
+  birefnetQueue = run.catch(() => {});
+  const out = await run;
+  // Scores, not probabilities: a sigmoid makes them 0–1.
+  const scores = out[model.outputNames[model.outputNames.length - 1]].data as Float32Array;
+  const mask = Buffer.alloc(S * S);
+  for (let i = 0; i < S * S; i++) mask[i] = Math.round(255 / (1 + Math.exp(-scores[i])));
+  return sharp(mask, { raw: { width: S, height: S, channels: 1 } })
+    .resize(W, H, { kernel: "lanczos3", fit: "fill" })
+    .extractChannel(0)
+    .raw()
+    .toBuffer();
+}
+
+/**
+ * Cut the car out with BiRefNet, keeping only the car's own shape (the
+ * biggest piece, and any at least a fifth its size): a dealer's logo or
+ * watermark the model also picked out goes. False, changing nothing, when
+ * BiRefNet isn't there or what it found doesn't look like a car side-on.
+ */
+export async function cutOutWithBiRefNet(raw: Raw): Promise<boolean> {
+  const mask = await birefnetMask(raw);
+  if (!mask) return false;
+  const { width: W, height: H, channels: C } = raw.info;
+
+  // Find the pieces on a copy at most 1000 px wide.
+  const scale = Math.min(1, 1000 / W);
+  const w = Math.max(8, Math.round(W * scale));
+  const h = Math.max(8, Math.round(H * scale));
+  const small = await sharp(mask, { raw: { width: W, height: H, channels: 1 } })
+    .resize(w, h, { fit: "fill" })
+    .extractChannel(0)
+    .raw()
+    .toBuffer();
+  const bg = Uint8Array.from(small, (v) => (v >= 128 ? 0 : 1));
+  const piece = new Int32Array(w * h).fill(-1);
+  const sizes: number[] = [];
+  const queue = new Int32Array(w * h);
+  for (let start = 0; start < w * h; start++) {
+    if (bg[start] || piece[start] >= 0) continue;
+    const id = sizes.length;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = start;
+    piece[start] = id;
+    while (head < tail) {
+      const p = queue[head++];
+      const x = p % w;
+      for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p - w, p + w]) {
+        if (q < 0 || q >= w * h || bg[q] || piece[q] >= 0) continue;
+        piece[q] = id;
+        queue[tail++] = q;
+      }
+    }
+    sizes.push(tail);
+  }
+  if (!sizes.length) return false;
+  const biggest = Math.max(...sizes);
+  const keep = new Uint8Array(w * h);
+  let [x0, y0, x1, y1] = [w, h, -1, -1];
+  let kept = 0;
+  for (let p = 0; p < w * h; p++) {
+    if (bg[p] || sizes[piece[p]] < biggest / 5) continue;
+    keep[p] = 1;
+    kept++;
+    const x = p % w;
+    const y = (p - x) / w;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  const aspect = (x1 - x0 + 1) / (y1 - y0 + 1);
+  if (kept < w * h * 0.03 || kept > w * h * 0.95 || aspect < 1.5 || aspect > 6) return false;
+
+  // Pieces kept, grown a little so their soft edges stay whole; everything
+  // else see-through. Inside them, the model's own soft mask.
+  const grown = squareFilter(keep, w, h, 2, "max");
+  const area = await sharp(Buffer.from(grown.map((v) => v * 255)), { raw: { width: w, height: h, channels: 1 } })
+    .resize(W, H, { kernel: "nearest", fit: "fill" })
+    .extractChannel(0)
+    .raw()
+    .toBuffer();
+  for (let p = 0; p < W * H; p++) {
+    const i = p * C + C - 1;
+    raw.data[i] = Math.min(raw.data[i], area[p] ? mask[p] : 0);
+  }
+  return true;
 }
 
 export interface PreparedUpload {
@@ -701,8 +859,8 @@ export interface PreparedUpload {
 
 /**
  * Do the fiddly part of preparing a car photo for someone uploading one:
- * remove a simple background (removeBackground), crop to the car and find
- * the wheels. Lenient,
+ * remove the background (with BiRefNet where it's been downloaded, else
+ * removeBackground for simple ones), crop to the car and find the wheels. Lenient,
  * unlike prepareCarPhoto: it's their photo, so it's never turned down, just
  * left as it is when the background can't be removed.
  */
@@ -712,7 +870,14 @@ export async function prepareUpload(bytes: Buffer): Promise<PreparedUpload | { e
   if (!raw) return { error: "That file isn't an image." };
   let background: PreparedUpload["background"] = "already";
   if (!clearBorder(raw)) {
-    background = (await removeBackground(raw, await modelMask(raw))) ? "removed" : "busy";
+    // BiRefNet if it's here; else (or if it found no car) colours and the
+    // small model. Either way the photo is left as it was if neither works.
+    const original = Buffer.from(raw.data);
+    if (await cutOutWithBiRefNet(raw)) background = "removed";
+    else {
+      original.copy(raw.data);
+      background = (await removeBackground(raw, await modelMask(raw))) ? "removed" : "busy";
+    }
   }
   const box = background === "busy" ? null : cropBox(raw);
   const whole = { x0: 0, y0: 0, w: raw.info.width, h: raw.info.height };

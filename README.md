@@ -105,11 +105,19 @@ npm run find-photos -- --save-to /tmp/p 3 # also keep every suggestion, to see w
 ```
 
 Uploading a photo in the car form still works, and replaces a found one. The
-form prepares it straight away: a simple background (a studio, or a wall and
-floor) is removed by colour, then trimmed with U²-Netp, a 4.6 MB background
-model in `models/` run by onnxruntime-node (about 0.2 s and 0.5 GB a photo;
-see `models/README.md`). Without the model (`CAR_PHOTO_MODEL=off`, or a host
-where it can't load) photos are prepared by colour alone.
+form prepares it straight away. BiRefNet, a background-removal model run by
+onnxruntime-node, cuts the car out of the photo, busy backgrounds included
+(about 5 s and 7 GB of memory a photo). It's 224 MB, so it isn't in git:
+
+```bash
+npm run download-model
+```
+
+Without it (not downloaded, `CAR_PHOTO_MODEL=u2netp`, or a host short on
+memory), a simple background (a studio, or a wall and floor) is removed by
+colour, then trimmed with U²-Netp, a 4.6 MB model kept in `models/` (about
+0.2 s and 0.5 GB a photo). `CAR_PHOTO_MODEL=off` uses colour alone. See
+`models/README.md`.
 
 A car with no photo (none found, or no CarsXE key) drives in as an outline
 of its body style instead: coupe, convertible, SUV or sedan, read from its

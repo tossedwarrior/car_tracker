@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import sharp from "sharp";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { watchImages, watchlist } from "@/db/schema";
 import { carImagesUrl, findCarImages } from "@/sources/carsxe";
@@ -9,6 +11,7 @@ import { NextRequest } from "next/server";
 import { POST as preparePhotoRoute } from "@/app/api/prepare-photo/route";
 import { SESSION_COOKIE } from "@/lib/auth";
 import {
+  cutOutWithBiRefNet,
   downloadImage,
   findWheels,
   isPrivateAddress,
@@ -35,6 +38,17 @@ const carSvg = (background = "none") => `<svg xmlns="http://www.w3.org/2000/svg"
   <circle cx="1800" cy="550" r="150" fill="#111"/>
 </svg>`;
 const png = (svg: string) => sharp(Buffer.from(svg)).png().toBuffer();
+/** The made-up car in front of a blotchy grey wall down to y 600, on a near-white floor. */
+const onConcrete = () => {
+  const wall = Array.from({ length: 120 }, (_, i) => {
+    const shade = 95 + ((i * 37) % 40);
+    return `<rect x="${(i * 97) % 2400}" y="${(i * 53) % 560}" width="160" height="60" fill="rgb(${shade},${shade + 4},${shade + 10})"/>`;
+  }).join("");
+  return carSvg("rgb(112,118,126)").replace(
+    "<path d=",
+    `${wall}<rect x="0" y="600" width="2400" height="200" fill="#e6e6e4"/><path d=`,
+  );
+};
 const jpeg = (svg: string) => sharp(Buffer.from(svg)).jpeg().toBuffer();
 
 describe("findWheels", () => {
@@ -201,6 +215,10 @@ describe("lookUpCarPhoto", () => {
 });
 
 describe("prepareUpload", () => {
+  // The colours and U²-Netp, whether or not BiRefNet has been downloaded here
+  // (it has a test of its own, below).
+  beforeEach(() => vi.stubEnv("CAR_PHOTO_MODEL", "u2netp"));
+
   it("removes a plain background, crops to the car and finds its wheels", async () => {
     // The made-up car on a light grey studio backdrop, saved as a JPEG.
     const photo = await jpeg(carSvg("#f2f2f2"));
@@ -218,16 +236,7 @@ describe("prepareUpload", () => {
   });
 
   it("removes a two-tone, textured background: a concrete wall above a pale floor", async () => {
-    // A blotchy grey wall down to y 600, a near-white floor below, and the car.
-    const wall = Array.from({ length: 120 }, (_, i) => {
-      const shade = 95 + ((i * 37) % 40);
-      return `<rect x="${(i * 97) % 2400}" y="${(i * 53) % 560}" width="160" height="60" fill="rgb(${shade},${shade + 4},${shade + 10})"/>`;
-    }).join("");
-    const svg = carSvg("rgb(112,118,126)").replace(
-      '<path d=',
-      `${wall}<rect x="0" y="600" width="2400" height="200" fill="#e6e6e4"/><path d=`,
-    );
-    const prepared = await prepareUpload(await jpeg(svg));
+    const prepared = await prepareUpload(await jpeg(onConcrete()));
     if ("error" in prepared) throw new Error(prepared.error);
     expect(prepared.background).toBe("removed");
     expect(prepared.width).toBeLessThan(2100);
@@ -265,6 +274,22 @@ describe("prepareUpload", () => {
   });
 });
 
+describe("scaling masks", () => {
+  it("keeps edges where they are when the shape changes (sharp crops by default)", async () => {
+    // A square mask, solid down to 75%, stretched to a 3:2 photo.
+    const S = 64;
+    const mask = Buffer.alloc(S * S);
+    for (let y = 0; y < S * 0.75; y++) mask.fill(255, y * S, y * S + S);
+    const up = await sharp(mask, { raw: { width: S, height: S, channels: 1 } })
+      .resize(300, 200, { fit: "fill" })
+      .extractChannel(0)
+      .raw()
+      .toBuffer();
+    const edge = Array.from({ length: 200 }, (_, y) => up[y * 300 + 150]).findIndex((v) => v < 128);
+    expect(edge / 200).toBeCloseTo(0.75, 1);
+  });
+});
+
 describe("the background model", () => {
   const decoded = async (svg: string) =>
     sharp(await jpeg(svg)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -291,5 +316,28 @@ describe("the background model", () => {
   it("can be turned off", async () => {
     vi.stubEnv("CAR_PHOTO_MODEL", "off");
     expect(await modelMask(await decoded(carSvg("#f2f2f2")))).toBeNull();
+  });
+});
+
+// Only where it's been downloaded (npm run download-model): 224 MB to
+// fetch, and 7 GB of memory while it runs.
+const haveBiRefNet = existsSync(path.join(process.cwd(), "models/birefnet-lite.onnx"));
+
+describe.skipIf(!haveBiRefNet)("BiRefNet", () => {
+  it("cuts the car out of its photo, and finds its wheels", { timeout: 120_000 }, async () => {
+    const prepared = await prepareUpload(await jpeg(onConcrete()));
+    if ("error" in prepared) throw new Error(prepared.error);
+    expect(prepared.background).toBe("removed");
+    expect(prepared.width).toBeLessThan(2100);
+    expect(prepared.wheels?.front.x).toBeCloseTo(0.2, 1);
+    expect(prepared.wheels?.rear.x).toBeCloseTo(0.8, 1);
+  });
+
+  it("is skipped for the smaller model, or none", async () => {
+    for (const choice of ["u2netp", "off"]) {
+      vi.stubEnv("CAR_PHOTO_MODEL", choice);
+      const raw = await sharp(await jpeg(onConcrete())).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      expect(await cutOutWithBiRefNet(raw)).toBe(false);
+    }
   });
 });
