@@ -46,6 +46,14 @@ export const users = mysqlTable(
     // Email preferences.
     listingEmails: boolean("listing_emails").notNull().default(true),
     monthlyReport: boolean("monthly_report").notNull().default(true),
+    // New-listing emails go out once a month, as one email: on this day of
+    // the month (1–28, so every month has it), and next on
+    // listing_email_next (YYYY-MM-DD; null until it's been worked out).
+    listingEmailDay: int("listing_email_day").notNull().default(1),
+    listingEmailNext: varchar("listing_email_next", { length: 10 }),
+    listingEmailSentOn: varchar("listing_email_sent_on", { length: 10 }),
+    // The newest alert the last one covered; the next one has what's after it.
+    listingsEmailedThrough: int("listings_emailed_through").notNull().default(0),
     // The CAD/USD switch, saved so emails show prices the same way.
     displayCurrency: varchar("display_currency", { length: 16, enum: currencies }).notNull().default("CAD"),
     createdAt: createdAt(),

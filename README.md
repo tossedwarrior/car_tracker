@@ -46,7 +46,8 @@ key is set, so the app runs without it.
 - `src/lib/customerio.ts`: the server client and the transactional API.
 - `src/lib/people.ts`: each person's profile (email preferences, the cars they
   follow with market numbers) and their events.
-- `src/jobs/notify.ts`: one `new_listings` event per person after a refresh.
+- `src/jobs/notify.ts`: the monthly new-listing email: one `new_listings`
+  event per person, on the day they pick in Settings.
 - `src/components/CustomerioAnalytics.tsx`: the browser (identify, page views,
   clicks on `data-track` elements).
 
@@ -74,8 +75,14 @@ npm run check-source -- autodev --make Ferrari --model "458 Italia" --years 2011
 
 ## Refreshing listings
 
-Listings only refresh when you ask: the **Refresh all** button on the
-watchlist, **Refresh** on a car's page, or from the terminal:
+Listings refresh when you ask (below), and once a month for each person's
+new-listing email: on the day they pick in Settings, their cars are refreshed
+and they get one email with what's new since the last one. The server checks
+hourly; with `LISTING_EMAILS_SCHEDULE=off`, run `npm run listing-emails` from a
+daily cron job instead (see `docs/CUSTOMERIO_PLAN.md`).
+
+To refresh now: the **Refresh all** button on the watchlist, **Refresh** on a
+car's page, or from the terminal:
 
 ```bash
 npm run refresh          # every active watched car
@@ -85,7 +92,9 @@ npm run refresh -- 1     # just watched car #1
 A refresh saves new and changed listings (with a price snapshot on each
 change). A car missing from refreshes on 3 different days is marked gone.
 Each car fetches up to 5 pages of 20; each source stops before its free
-monthly limit. Refreshes and API call counts are on the Settings page.
+monthly limit. When MarketCheck turns requests away for coming too fast, the
+refresh waits (2, 5, then 15 seconds) and tries again; a turned-away request
+doesn't count against the month. Refreshes and API call counts are on the Settings page.
 
 ## Car photos
 

@@ -51,6 +51,7 @@ export function profileTraits(user: User, cars: ProfileCar[]): Traits {
     created_at: unixTime(user.createdAt),
     last_sign_in_at: unixTime(user.lastSignInAt),
     listing_emails: user.listingEmails,
+    listing_email_day: user.listingEmailDay,
     monthly_report: user.monthlyReport,
     currency: user.displayCurrency,
     cars_followed: cars.length,

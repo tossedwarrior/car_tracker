@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fixtureContext } from "@/test/fixtures";
-import { buildSearchUrl, CITIES, marketcheck, normalize } from "./marketcheck";
+import { buildSearchUrl, CITIES, marketcheck, normalize, RETRY_WAITS_MS } from "./marketcheck";
 import { BudgetExceededError, SourceError } from "./types";
 
 const query = { make: "Ferrari", model: "458 Italia", yearMin: 2011, yearMax: 2015, maxKm: 40000 };
@@ -116,6 +116,37 @@ describe("marketcheck.search", () => {
     const result = await marketcheck.search(query, ctx);
     expect(result).toMatchObject({ calls: 2, truncated: true });
     expect(result.listings).toHaveLength(2);
+  });
+
+  it("waits and tries again when requests come too fast, as one call", async () => {
+    const tooFast = { fixture: "marketcheck/error-rate-limit.json", status: 429 };
+    const ctx = fixtureContext([allCities[0], tooFast, tooFast, ...allCities.slice(1)]);
+    const waits: number[] = [];
+    ctx.wait = async (ms) => void waits.push(ms);
+    let budgeted = 0;
+    ctx.beforeCall = () => void budgeted++;
+    const result = await marketcheck.search(query, ctx, { maxCalls: 4 });
+    expect(waits).toEqual(RETRY_WAITS_MS.slice(0, 2));
+    expect(result.calls).toBe(4);
+    expect(budgeted).toBe(4);
+    expect(ctx.urls).toHaveLength(6);
+  });
+
+  it("keeps what it has when MarketCheck stays too busy, and doesn't wait on a used-up quota", async () => {
+    const tooFast = { fixture: "marketcheck/error-rate-limit.json", status: 429 };
+    const ctx = fixtureContext([allCities[0], tooFast, tooFast, tooFast, tooFast]);
+    const waits: number[] = [];
+    ctx.wait = async (ms) => void waits.push(ms);
+    const result = await marketcheck.search(query, ctx);
+    expect(waits).toEqual(RETRY_WAITS_MS);
+    expect(result).toMatchObject({ calls: 1, truncated: true });
+    expect(result.listings.length).toBeGreaterThan(0);
+
+    const quota = fixtureContext([{ fixture: "marketcheck/error-quota.json", status: 429 }]);
+    quota.wait = async () => {
+      throw new Error("shouldn't wait");
+    };
+    await expect(marketcheck.search(query, quota)).rejects.toThrow("Monthly API quota exhausted");
   });
 
   it("reports API errors without the URL, which holds the key", async () => {

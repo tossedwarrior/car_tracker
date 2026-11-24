@@ -56,6 +56,8 @@ export default async function SettingsPage() {
         name={user.name}
         listingEmails={user.listingEmails}
         monthlyReport={user.monthlyReport}
+        listingEmailDay={user.listingEmailDay}
+        listingEmailNext={user.listingEmailNext}
       />
 
       {user.isAdmin && (

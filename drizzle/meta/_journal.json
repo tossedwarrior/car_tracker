@@ -36,6 +36,13 @@
       "when": 1795464026792,
       "tag": "0004_make_logos",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1795538834750,
+      "tag": "0005_monthly_listing_emails",
+      "breakpoints": true
     }
   ]
 }

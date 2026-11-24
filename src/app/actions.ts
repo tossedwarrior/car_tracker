@@ -239,6 +239,7 @@ export async function savePreferences(_prev: PreferencesState, form: FormData): 
     name: String(form.get("name") ?? "").trim().slice(0, 100) || null,
     listingEmails: form.get("listingEmails") === "on",
     monthlyReport: form.get("monthlyReport") === "on",
+    listingEmailDay: Number(form.get("listingEmailDay")) || 1,
   });
   sendToCustomerio(user.id);
   revalidatePath("/settings");

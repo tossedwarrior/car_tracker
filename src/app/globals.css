@@ -865,6 +865,10 @@ header.site { position: relative; z-index: 20; }
 .checks { border: 0; padding: 0; margin: 0; display: grid; gap: 12px; }
 .checks legend { font-family: var(--font-serif), Georgia, serif; font-size: 18px; margin-bottom: 12px; padding: 0; }
 .checks label { display: flex; gap: 10px; align-items: baseline; }
+/* Under the new-listings box: which day of the month. */
+.listing-day { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: -4px 0 4px 23px; }
+.listing-day select { font: inherit; padding: 4px 8px; border: 1px solid var(--border-strong); border-radius: 6px; background: #fff; }
+.listing-day .muted { flex-basis: 100%; }
 
 /* No logo for this make: its name, set large and faint in the logo's place,
    sized to fit its width whatever its length. */

@@ -107,19 +107,34 @@ export function normalize(raw: MarketCheckListing): NormalizedListing | null {
   };
 }
 
+/**
+ * Waits before each try again when MarketCheck says requests are coming too
+ * fast (HTTP 429 "API rate limit exceeded"), unless it says how long to wait.
+ */
+export const RETRY_WAITS_MS = [2_000, 5_000, 15_000];
+const realWait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 async function fetchPage(url: string, ctx: SourceContext): Promise<MarketCheckResponse> {
+  // One call against the monthly budget, however many tries it takes: a
+  // turned-away request isn't a search.
   await ctx.beforeCall();
-  const res = await ctx.fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await ctx.fetch(url, { headers: { Accept: "application/json" } });
+    if (res.ok) return (await res.json()) as MarketCheckResponse;
     // Never echo the URL: it carries the API key.
     let detail = res.statusText;
     try {
       const body = (await res.json()) as { message?: string };
       detail = body.message || detail;
     } catch {}
+    // 429 also means the month's quota is gone; waiting won't help that.
+    if (res.status === 429 && !/quota/i.test(detail) && attempt < RETRY_WAITS_MS.length) {
+      const asked = Number(res.headers.get("retry-after"));
+      await (ctx.wait ?? realWait)(asked > 0 ? Math.min(asked * 1000, 60_000) : RETRY_WAITS_MS[attempt]);
+      continue;
+    }
     throw new SourceError(marketcheck.id, `HTTP ${res.status} ${detail}`, res.status);
   }
-  return (await res.json()) as MarketCheckResponse;
 }
 
 /**
@@ -162,8 +177,10 @@ async function search(
       while (hasMore(city) && found.has(city) && calls < maxCalls) await fetchCity(city);
     }
   } catch (e) {
-    // Out of calls partway through: keep what was already fetched.
-    if (!(e instanceof BudgetExceededError && calls > 0)) throw e;
+    // Out of calls, or still turned away after waiting, partway through:
+    // keep what was already fetched.
+    const stopped = e instanceof BudgetExceededError || (e instanceof SourceError && e.status === 429);
+    if (!(stopped && calls > 0)) throw e;
     outOfCalls = true;
   }
 

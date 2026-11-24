@@ -29,19 +29,41 @@ report for every car on their list.
 - Personal watchlists: `follows` links a person to a shared car search with
   their own target price and notes. Same car, same search: fetched once.
 - Per-person alerts, up to `MAX_CARS_PER_USER` cars (default 5).
-- Email preferences in Settings: new-listing emails and the monthly report,
+- Email preferences in Settings: the monthly new-listing email (on a day of
+  the month each person picks, the 1st by default) and the monthly report,
   both on by default. Delete account in Settings.
 - The owner (`OWNER_EMAIL`) keeps API usage, backups, sold-price pulls and
   listing fixes, and takes over the pre-accounts data on first sign-in.
 
-### 2. Refresh on a schedule (to do)
+### 2. Monthly new-listing emails — done (Nov 24)
 
-New-listing emails only make sense if the app looks for new listings without
-anyone pressing Refresh. Add `npm run refresh` as a daily cron job (cPanel
-"Cron Jobs" on GoDaddy). Check the budget first: with N followed searches,
-Auto.dev's 1,000 calls/month allows about 33 a day, so roughly 5 pages per
-search for 6 searches, fewer per search as people add cars. The refresh already
-spreads each source's remaining calls across cars (`src/jobs/budget.ts`).
+New-listing emails go out once a month, on the day each person picks in
+Settings (1st–28th). On that day, from 8 am server time, the app refreshes the
+cars they follow (unless one was refreshed in the last 12 hours) and sends
+them one `new_listings` event with every car listed since their last one and
+still for sale (`src/jobs/notify.ts`). Nothing's sent when nothing new was
+listed. Refreshing no longer sends listing emails by itself.
+
+The server checks every hour while it runs (`src/instrumentation.ts`). On a
+host that puts idle apps to sleep (GoDaddy's cPanel can), set
+`LISTING_EMAILS_SCHEDULE=off` and add a daily cron job (cPanel "Cron Jobs")
+instead:
+
+```bash
+cd ~/car_tracker && npm run listing-emails
+```
+
+Each person gets one a month either way: their next date moves on before
+anything's sent. `npm run listing-emails -- --user 3` sends account #3's email
+now, whatever its day; it only has cars listed since the account's last email
+(a car's first search doesn't count as new). For the demo,
+`npm run listing-emails -- --user 3 --sample` sends a sample instead: the
+account's 5 newest cars for sale, marked `sample: true`, with no refresh and
+nothing moved on.
+
+Budget: people on different days mean a car can be refreshed several times a
+month. Each source shares its remaining free calls across the cars in a
+refresh (`src/jobs/budget.ts`) and stops before its monthly limit.
 
 ### 3. Customer.io: data in — code done (Nov 23), needs your keys
 
@@ -60,6 +82,7 @@ Profile attributes (on sign-up, sign-in, any change, and after each refresh):
 | `email`, `name` | |
 | `created_at`, `last_sign_in_at` | Unix seconds |
 | `listing_emails`, `monthly_report` | `true` |
+| `listing_email_day` | `15` (the day of the month their new-listing email goes out) |
 | `currency` | `CAD` |
 | `cars_followed` | `2` |
 | `cars` | `[{ "id": 1, "title": "Ferrari 458 Italia", "years": "2011 - 2015", "url": "…/watch/1", "for_sale": 20, "new_this_week": 3, "lowest": "CA$238,000", "trend": "cooling", "trend_percent": -4.2 }]` |
@@ -72,7 +95,7 @@ Events:
 | `signed_up`, `signed_in` | server | — |
 | `car_followed` | server | `car_id`, `car`, `years`, `target_price`, `target_currency` |
 | `car_unfollowed` | server | `car_id`, `car` |
-| `new_listings` | server, after a refresh | `count`, `cars`, `listings` (below). Only for people with `listing_emails` on. |
+| `new_listings` | server, once a month on their day | `count`, `cars`, `listings` (below, at most 50), `since` (the date of their last one, or null), `sample` (true only on a sample from `--sample`). Only for people with `listing_emails` on, and only when something new was listed. |
 | `account_deleted` | server | — |
 | `listing_clicked` | browser | `car`, `car_id`, `listing_id`, `year`, `price`, `source` |
 
@@ -94,7 +117,8 @@ seller's, when it's another currency), `mileage`, `location`, `seller`, `url`,
    <p>It works once, for the next {{trigger.expires_minutes}} minutes. If you didn't ask for it, ignore this email.</p>
    ```
 
-2. **Campaign — new listings.** Trigger: event `new_listings`.
+2. **Campaign — new listings, monthly.** Trigger: event `new_listings` (the
+   app sends it once a month, on each person's day).
 
    Subject:
    ```liquid

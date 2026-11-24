@@ -134,9 +134,20 @@ export async function setDisplayCurrency(userId: number, currency: User["display
 
 export async function updatePreferences(
   userId: number,
-  prefs: { name: string | null; listingEmails: boolean; monthlyReport: boolean },
+  prefs: { name: string | null; listingEmails: boolean; monthlyReport: boolean; listingEmailDay: number },
+  now = new Date(),
 ) {
-  await db.update(users).set(prefs).where(eq(users.id, userId));
+  const { clampDay, scheduleListingEmail } = await import("@/jobs/notify");
+  const { localDate } = await import("@/jobs/budget");
+  const user = await getUser(userId);
+  if (!user) return;
+  const listingEmailDay = clampDay(prefs.listingEmailDay);
+  // A new day: the next email moves to it (never within two weeks of the last).
+  const listingEmailNext =
+    listingEmailDay !== user.listingEmailDay || !user.listingEmailNext
+      ? scheduleListingEmail(listingEmailDay, localDate(now), user.listingEmailSentOn)
+      : user.listingEmailNext;
+  await db.update(users).set({ ...prefs, listingEmailDay, listingEmailNext }).where(eq(users.id, userId));
 }
 
 /**

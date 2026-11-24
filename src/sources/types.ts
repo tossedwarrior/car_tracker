@@ -43,6 +43,8 @@ export interface SourceContext {
   /** Called before every real API call. Throws if the source is over budget. */
   beforeCall: () => void | Promise<void>;
   apiKey: string;
+  /** Pauses before a retry (a real wait by default; tests skip it). */
+  wait?: (ms: number) => Promise<void>;
 }
 
 export interface SearchOptions {

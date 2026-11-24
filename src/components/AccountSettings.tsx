@@ -9,11 +9,17 @@ export function AccountSettings({
   name,
   listingEmails,
   monthlyReport,
+  listingEmailDay,
+  listingEmailNext,
 }: {
   email: string;
   name: string | null;
   listingEmails: boolean;
   monthlyReport: boolean;
+  /** 1–28. */
+  listingEmailDay: number;
+  /** YYYY-MM-DD, or null until it's worked out. */
+  listingEmailNext: string | null;
 }) {
   const [state, action, pending] = useActionState<PreferencesState, FormData>(savePreferences, {});
 
@@ -30,9 +36,24 @@ export function AccountSettings({
           <fieldset className="checks">
             <legend>Email me</legend>
             <label>
-              <input type="checkbox" name="listingEmails" defaultChecked={listingEmails} /> When a new car is listed
-              for one I follow
+              <input type="checkbox" name="listingEmails" defaultChecked={listingEmails} /> Once a month, the new cars
+              listed for the ones I follow
             </label>
+            <div className="listing-day">
+              <label htmlFor="listingEmailDay">On the</label>
+              {/* Keyed so it shows the saved day after the form resets on saving. */}
+              <select key={listingEmailDay} id="listingEmailDay" name="listingEmailDay" defaultValue={listingEmailDay}>
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>
+                    {ordinal(d)}
+                  </option>
+                ))}
+              </select>
+              <span>of each month</span>
+              {listingEmails && listingEmailNext && (
+                <span className="muted small">Next one: {longDate(listingEmailNext)}</span>
+              )}
+            </div>
             <label>
               <input type="checkbox" name="monthlyReport" defaultChecked={monthlyReport} /> A monthly market report
               for the cars I follow
@@ -69,4 +90,22 @@ export function AccountSettings({
       </section>
     </>
   );
+}
+
+/** 1st, 2nd, 3rd, 4th… 21st, 22nd. */
+function ordinal(n: number) {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
+  return `${n}${suffix}`;
+}
+
+/** "December 1" (with the year when it isn't this one). */
+function longDate(ymd: string) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString("en-CA", {
+    month: "long",
+    day: "numeric",
+    ...(y !== new Date().getFullYear() ? { year: "numeric" } : {}),
+  });
 }
