@@ -1,6 +1,27 @@
 # Car Price Tracker
 
-Personal app that tracks asking and sold prices for watched exotics. See [SPEC.md](SPEC.md).
+Tracks asking and sold prices for exotic cars. People sign up with their
+email, follow the cars they want, and see every listing, auction results and
+where prices are heading. See [SPEC.md](SPEC.md), and
+[docs/CUSTOMERIO_PLAN.md](docs/CUSTOMERIO_PLAN.md) for the email plan.
+
+## Accounts
+
+- **Sign up and sign in are the same:** enter an email, get a one-time link
+  (good for 30 minutes), open it and press Continue. A session cookie keeps
+  that browser signed in for 30 days. Until an email service is connected, the
+  link is shown on the page and written to the server log on a development
+  server only; production sends nothing yet.
+- **Following cars:** each person keeps their own list, with their own target
+  price and notes. People who add the same car (same make, model, years,
+  mileage and trim) share one search, so it's fetched once. Each person can
+  follow up to `MAX_CARS_PER_USER` cars (default 5). A car nobody follows any
+  more is deleted with its listings.
+- **The owner** (`OWNER_EMAIL`) has no car limit, sees API usage, Backup &
+  restore and refresh logs in Settings, and is the only one who can pull
+  auction results (Old Cars Data's 10 a month are shared) or fix a listing.
+  The first time the owner signs in, they take over the cars and alerts from
+  before accounts, with the old target prices and notes.
 
 ## Setup
 
@@ -14,6 +35,23 @@ npm run db:migrate     # creates the tables
 npm run db:seed        # optional: example Ferrari 458 watch + saved listings, no API calls
 npm run dev            # http://localhost:3000
 ```
+
+## Customer.io
+
+Email goes through Customer.io; the keys and what each one does are in
+`.env.example`, and the plan, events and email templates in
+[docs/CUSTOMERIO_PLAN.md](docs/CUSTOMERIO_PLAN.md). Each part is off until its
+key is set, so the app runs without it.
+
+- `src/lib/customerio.ts`: the server client and the transactional API.
+- `src/lib/people.ts`: each person's profile (email preferences, the cars they
+  follow with market numbers) and their events.
+- `src/jobs/notify.ts`: the monthly new-listing email: one `new_listings`
+  event per person, on the day they pick in Settings.
+- `src/components/CustomerioAnalytics.tsx`: the browser (identify, page views,
+  clicks on `data-track` elements).
+
+Tests never talk to Customer.io: `src/test/setup.ts` clears the keys.
 
 ## Data sources
 
@@ -37,8 +75,14 @@ npm run check-source -- autodev --make Ferrari --model "458 Italia" --years 2011
 
 ## Refreshing listings
 
-Listings only refresh when you ask: the **Refresh all** button on the
-watchlist, **Refresh** on a car's page, or from the terminal:
+Listings refresh when you ask (below), and once a month for each person's
+new-listing email: on the day they pick in Settings, their cars are refreshed
+and they get one email with what's new since the last one. The server checks
+hourly; with `LISTING_EMAILS_SCHEDULE=off`, run `npm run listing-emails` from a
+daily cron job instead (see `docs/CUSTOMERIO_PLAN.md`).
+
+To refresh now: the **Refresh all** button on the watchlist, **Refresh** on a
+car's page, or from the terminal:
 
 ```bash
 npm run refresh          # every active watched car
@@ -48,7 +92,55 @@ npm run refresh -- 1     # just watched car #1
 A refresh saves new and changed listings (with a price snapshot on each
 change). A car missing from refreshes on 3 different days is marked gone.
 Each car fetches up to 5 pages of 20; each source stops before its free
-monthly limit. Refreshes and API call counts are on the Settings page.
+monthly limit. When MarketCheck turns requests away for coming too fast, the
+refresh waits (2, 5, then 15 seconds) and tries again; a turned-away request
+doesn't count against the month. Refreshes and API call counts are on the Settings page.
+
+## Car photos
+
+Each car needs a side-on photo for the home page, with its wheels marked so
+they turn. With `CARSXE_API_KEY` set, adding a car with no photo looks one up
+in the background: CarsXE suggests up to 10 images, and the app keeps the
+first with a transparent background and two wheels it can find
+(`src/lib/car-photo.ts`). It crops the photo, marks the wheels (from where the
+tyres touch the ground, or failing that from the rims' circles), and records
+the page it came from. Each car is looked up once, since every lookup uses a
+CarsXE credit. Check a found photo's usage rights before relying on it.
+
+```bash
+npm run find-photos                       # every car without a photo
+npm run find-photos -- --force 3          # look again for car #3, replacing its photo
+npm run find-photos -- --save-to /tmp/p 3 # also keep every suggestion, to see why one was skipped
+```
+
+Uploading a photo in the car form still works, and replaces a found one. The
+form prepares it straight away. BiRefNet, a background-removal model run by
+onnxruntime-node, cuts the car out of the photo, busy backgrounds included
+(about 5 s and 7 GB of memory a photo). It's 224 MB, so it isn't in git:
+
+```bash
+npm run download-model
+```
+
+Without it (not downloaded, `CAR_PHOTO_MODEL=u2netp`, or a host short on
+memory), a simple background (a studio, or a wall and floor) is removed by
+colour, then trimmed with U²-Netp, a 4.6 MB model kept in `models/` (about
+0.2 s and 0.5 GB a photo). `CAR_PHOTO_MODEL=off` uses colour alone. See
+`models/README.md`.
+
+A car with no photo (none found, or no CarsXE key) drives in as an outline
+of its body style instead: coupe, convertible, SUV or sedan, read from its
+make, model and trim (`src/lib/outlines.ts`), with an "Add a car photo" link
+under it. The outlines are `public/outlines/*.svg`, drawn by
+`scripts/draw-outlines.py`.
+
+Behind each car is a faint logo: the one uploaded for it, else its brand's
+emblem (`public/logos/`, copied from [Simple Icons](https://simpleicons.org)
+by `npm run brand-logos`), else the make's name set large. For brands Simple
+Icons doesn't have (Mercedes-Benz, Lotus, Pagani, Jaguar…), or to use a
+better logo, the owner uploads one per make in **Settings → Brand logos**;
+it's used for every car of that make (`src/lib/make-logos.ts`). Order: the
+car's own logo, the make's upload, the emblem, the name.
 
 ## Home page
 
@@ -72,9 +164,9 @@ the car form: see [docs/CAR_PHOTOS.md](docs/CAR_PHOTOS.md).
   Rising/flat/cooling = typical price up more than 3% / within 3% / down more
   than 3% over 3 months, from asking prices once there are 3 months of them,
   auction sales until then.
-- **Alerts** (in the app, with an unread count in the header): new listings
-  (not on a source's first search for a car), price drops, and cars at or under
-  the target price. Checked on refresh.
+- **Alerts** (in the app, with an unread count in the header), for each person
+  following the car: new listings (not on a source's first search for a car),
+  price drops, and cars at or under their target price. Checked on refresh.
 - **Fixing a listing**: sources can get a currency or location wrong (MarketCheck
   reports every Canadian dealer's price as CAD, even from a U.S. branch). The
   **Fix** link on a listing corrects them; refreshes keep the correction, and
@@ -132,10 +224,13 @@ base path setting blank or `/`.
      `scripts/db-config.cjs`). `MYSQL_SSL=true` if the
      host requires encrypted connections. Don't keep data in files on the
      server: GoDaddy can reset its file system on restarts and deploys.
-   - `APP_PASSWORD`: shows a sign-in page until it's entered; a cookie keeps
-     that browser signed in for 30 days. Signed-out visitors get the sign-in
-     page with status 200, so host health checks pass. Leave it unset only if
-     the site isn't reachable from the internet.
+   - `APP_URL`: the site's address (e.g. `https://example.com`), for links in
+     emails. Required in production; sign-in links are never built from the
+     request's Host header.
+   - `OWNER_EMAIL`: your address; that account is the owner (see
+     [Accounts](#accounts)). `MAX_CARS_PER_USER` (optional, default 5).
+   - Signed-out visitors get the sign-in page with status 200, so host health
+     checks pass. `APP_PASSWORD` is no longer used.
    - Don't set `NODE_ENV`: `npm install` would then skip the build tools.
 3. Builds: `npm start` installs dependencies if they're missing and builds the
    app if there's no build of the current code (it fingerprints the source),

@@ -8,6 +8,8 @@ import { Rates, syncRates } from "@/lib/fx";
 import { getUsage } from "@/sources/usage";
 import { recordAlerts, type AlertCounts } from "./alerts";
 import { takeMarketSnapshot } from "./market";
+import { syncFollowersOf } from "@/lib/people";
+import { customerio } from "@/lib/customerio";
 import { callsPerWatch, localDate } from "./budget";
 import { recordListings, type IngestStats } from "./ingest";
 
@@ -129,6 +131,17 @@ export async function runRefresh({
   }
 
   for (const id of refreshed) await takeMarketSnapshot(id, rates, now);
+
+  // Customer.io: fresh market numbers on every follower's profile, for the
+  // monthly report. (New-listing emails go out once a month, from
+  // ./notify.) A failure here is logged, and the refresh itself still counts.
+  if (customerio() && refreshed.size) {
+    try {
+      await syncFollowersOf([...refreshed], rates);
+    } catch (e) {
+      log.push(`Customer.io: not updated, ${(e as Error).message}`);
+    }
+  }
 
   const finishedAt = new Date().toISOString();
   if (refreshed.size) {

@@ -1,11 +1,33 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { currencies, listings, watchlist, type Currency } from "@/db/schema";
+import { alertsSent, currencies, follows, listings, watchlist, type Currency } from "@/db/schema";
 import type { Rates } from "./fx";
+import type { User } from "./users";
 
-export type Watch = typeof watchlist.$inferSelect;
-export type WatchInput = Omit<Watch, "id" | "createdAt" | "active" | "lastRefreshed" | "lastSoldPull">;
+/** A car search: what the sources are asked for, shared by everyone who follows it. */
+export type CarSearch = typeof watchlist.$inferSelect;
+/** A car search as one person sees it, with their own target price and notes. */
+export type Watch = CarSearch & {
+  targetPrice: number | null;
+  targetCurrency: Currency;
+  notes: string | null;
+};
+/** The add/edit form: the search, then the person's own target and notes. */
+export interface WatchInput {
+  make: string;
+  model: string;
+  yearMin: number;
+  yearMax: number;
+  maxKm: number | null;
+  trim: string | null;
+  targetPrice: number | null;
+  targetCurrency: Currency;
+  notes: string | null;
+}
 export type Listing = typeof listings.$inferSelect;
+
+/** Cars one person can follow (the owner has no limit), to keep within the sources' free calls. */
+export const maxCarsPerUser = () => Number(process.env.MAX_CARS_PER_USER) || 5;
 
 export type FormErrors = Partial<Record<keyof WatchInput | "form" | "logo" | "photo", string>>;
 
@@ -68,23 +90,136 @@ export function parseWatchForm(
   };
 }
 
-export async function getWatch(id: number): Promise<Watch | undefined> {
-  const [row] = await db.select().from(watchlist).where(eq(watchlist.id, id)).limit(1);
-  return row;
+const searchOf = (v: WatchInput) => ({
+  make: v.make,
+  model: v.model,
+  yearMin: v.yearMin,
+  yearMax: v.yearMax,
+  maxKm: v.maxKm,
+  trim: v.trim,
+});
+const followOf = (v: WatchInput) => ({ targetPrice: v.targetPrice, targetCurrency: v.targetCurrency, notes: v.notes });
+
+/** Same search: same make, model and trim (any case), years and mileage. */
+export function sameSearch(a: WatchInput | CarSearch, b: WatchInput | CarSearch): boolean {
+  const lower = (s: string | null) => s?.toLowerCase() ?? null;
+  return (
+    lower(a.make) === lower(b.make) &&
+    lower(a.model) === lower(b.model) &&
+    lower(a.trim) === lower(b.trim) &&
+    a.yearMin === b.yearMin &&
+    a.yearMax === b.yearMax &&
+    (a.maxKm ?? null) === (b.maxKm ?? null)
+  );
 }
 
-export async function createWatch(values: WatchInput): Promise<number> {
-  const [row] = await db.insert(watchlist).values(values).$returningId();
-  return row.id;
+/** An existing search for the same car, so a second person shares its listings and calls. */
+async function findSearch(v: WatchInput): Promise<CarSearch | undefined> {
+  const candidates = await db
+    .select()
+    .from(watchlist)
+    .where(and(sql`lower(${watchlist.make}) = ${v.make.toLowerCase()}`, sql`lower(${watchlist.model}) = ${v.model.toLowerCase()}`));
+  return candidates.find((c) => sameSearch(c, v));
 }
 
-export async function updateWatch(id: number, values: WatchInput) {
-  await db.update(watchlist).set(values).where(eq(watchlist.id, id));
+const withFollow = (watch: CarSearch, f: typeof follows.$inferSelect): Watch => ({
+  ...watch,
+  targetPrice: f.targetPrice,
+  targetCurrency: f.targetCurrency,
+  notes: f.notes,
+});
+
+/** A car this person follows, with their target and notes; undefined if they don't follow it. */
+export async function getWatch(userId: number, id: number): Promise<Watch | undefined> {
+  const [row] = await db
+    .select({ watch: watchlist, follow: follows })
+    .from(follows)
+    .innerJoin(watchlist, eq(follows.watchId, watchlist.id))
+    .where(and(eq(follows.userId, userId), eq(follows.watchId, id)))
+    .limit(1);
+  return row && withFollow(row.watch, row.follow);
 }
 
-/** Deletes the watch and, through the foreign keys, its listings and history. */
-export async function deleteWatch(id: number) {
-  await db.delete(watchlist).where(eq(watchlist.id, id));
+export async function countFollowers(watchId: number): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)` }).from(follows).where(eq(follows.watchId, watchId));
+  return Number(row?.n ?? 0);
+}
+
+async function countFollowing(userId: number): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)` }).from(follows).where(eq(follows.userId, userId));
+  return Number(row?.n ?? 0);
+}
+
+async function follow(userId: number, watchId: number, v: WatchInput) {
+  await db
+    .insert(follows)
+    .values({ userId, watchId, ...followOf(v) })
+    .onDuplicateKeyUpdate({ set: followOf(v) });
+}
+
+/**
+ * Add a car to someone's list: follow the matching search if there is one,
+ * otherwise start a new one. Errors when they're at their limit.
+ */
+export async function addCar(
+  user: Pick<User, "id" | "isAdmin">,
+  v: WatchInput,
+  { checkLimit = true } = {},
+): Promise<{ watchId: number } | { error: string }> {
+  const existing = await findSearch(v);
+  const alreadyFollowing = existing ? !!(await getWatch(user.id, existing.id)) : false;
+  if (checkLimit && !user.isAdmin && !alreadyFollowing && (await countFollowing(user.id)) >= maxCarsPerUser()) {
+    return { error: `You can follow up to ${maxCarsPerUser()} cars. Remove one to add another.` };
+  }
+  let watchId = existing?.id;
+  if (watchId) {
+    await db.update(watchlist).set({ active: true }).where(eq(watchlist.id, watchId));
+  } else {
+    [{ id: watchId }] = await db.insert(watchlist).values(searchOf(v)).$returningId();
+  }
+  await follow(user.id, watchId, v);
+  return { watchId };
+}
+
+/**
+ * Save the edit form for a car someone follows. Their target and notes are
+ * theirs alone. A changed search is changed in place when nobody else
+ * follows it; otherwise they move to the new search and the others keep the
+ * old one. Returns the car's id, which changes if they moved.
+ */
+export async function updateCar(user: Pick<User, "id" | "isAdmin">, watchId: number, v: WatchInput): Promise<number> {
+  const [current] = await db.select().from(watchlist).where(eq(watchlist.id, watchId)).limit(1);
+  if (sameSearch(current, v)) {
+    await follow(user.id, watchId, v);
+    return watchId;
+  }
+  const elsewhere = await findSearch(v);
+  if (!elsewhere && (await countFollowers(watchId)) === 1) {
+    await db.update(watchlist).set(searchOf(v)).where(eq(watchlist.id, watchId));
+    await follow(user.id, watchId, v);
+    return watchId;
+  }
+  await unfollow(user.id, watchId);
+  const added = await addCar(user, v, { checkLimit: false });
+  return "watchId" in added ? added.watchId : watchId;
+}
+
+/** Take a car off someone's list, with their alerts for it. Nobody left following it: it's deleted. */
+export async function unfollow(userId: number, watchId: number) {
+  await db.delete(follows).where(and(eq(follows.userId, userId), eq(follows.watchId, watchId)));
+  const ids = (await db.select({ id: listings.id }).from(listings).where(eq(listings.watchId, watchId))).map((r) => r.id);
+  if (ids.length) await db.delete(alertsSent).where(and(eq(alertsSent.userId, userId), inArray(alertsSent.listingId, ids)));
+  await deleteIfUnfollowed(watchId);
+}
+
+/** Deletes a search nobody follows and, through the foreign keys, its listings and history. */
+export async function deleteIfUnfollowed(watchId: number) {
+  if ((await countFollowers(watchId)) === 0) await db.delete(watchlist).where(eq(watchlist.id, watchId));
+}
+
+/** The ids of the cars someone follows. */
+export async function followedIds(userId: number): Promise<number[]> {
+  return (await db.select({ id: follows.watchId }).from(follows).where(eq(follows.userId, userId))).map((r) => r.id);
 }
 
 export interface WatchSummary extends Watch {
@@ -93,8 +228,16 @@ export interface WatchSummary extends Watch {
   lowest: Array<{ currency: Currency; price: number }>;
 }
 
-export async function listWatches(): Promise<WatchSummary[]> {
-  const watches = await db.select().from(watchlist).orderBy(asc(watchlist.make), asc(watchlist.model));
+/** The cars someone follows, with what's for sale for each. */
+export async function listWatches(userId: number): Promise<WatchSummary[]> {
+  const watches: Watch[] = (
+    await db
+      .select({ watch: watchlist, follow: follows })
+      .from(follows)
+      .innerJoin(watchlist, eq(follows.watchId, watchlist.id))
+      .where(eq(follows.userId, userId))
+      .orderBy(asc(watchlist.make), asc(watchlist.model))
+  ).map(({ watch, follow: f }) => withFollow(watch, f));
   const counts = await db
     .select({ watchId: listings.watchId, n: sql<number>`count(*)` })
     .from(listings)

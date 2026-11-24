@@ -18,6 +18,10 @@
     "check-source": "tsx scripts/check-source.ts",
     "db:seed": "tsx scripts/seed.ts",
     "refresh": "tsx scripts/refresh.ts",
+    "listing-emails": "tsx scripts/listing-emails.ts",
+    "find-photos": "tsx scripts/find-photos.ts",
+    "brand-logos": "tsx scripts/brand-logos.ts",
+    "download-model": "tsx scripts/download-model.ts",
     "mysql:start": "sh scripts/mysql-local.sh start",
     "mysql:stop": "sh scripts/mysql-local.sh stop",
     "mysql:status": "sh scripts/mysql-local.sh status",
@@ -25,13 +29,17 @@
     "backup:from-sqlite": "tsx scripts/sqlite-to-backup.ts"
   },
   "dependencies": {
+    "@customerio/cdp-analytics-browser": "0.8.2",
+    "@customerio/cdp-analytics-node": "0.8.2",
     "drizzle-orm": "^0.45.4",
     "mysql2": "^3.24.6",
-    "next": "^16.4.2",
+    "next": "^16.4.6",
+    "onnxruntime-node": "1.31.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-is": "^19.3.1",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
@@ -41,6 +49,7 @@
     "better-sqlite3": "^13.0.3",
     "dotenv": "^18.0.8",
     "drizzle-kit": "^0.31.11",
+    "simple-icons": "16.37.0",
     "tsx": "^4.23.15",
     "typescript": "~5.9",
     "vitest": "^5.0.5"

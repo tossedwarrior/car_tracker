@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HomeCar } from "@/lib/home";
+import { drawnCar } from "@/lib/outlines";
 import { sceneMotion } from "@/lib/showroom";
 import { wheelTurn } from "@/lib/wheels";
 import { CarSprite } from "./CarSprite";
@@ -26,6 +27,9 @@ interface Parts {
   text: HTMLDivElement | null;
   logo: HTMLDivElement | null;
 }
+
+/** A make's name in place of a logo: a band this tall for its width. */
+const TEXT_LOGO_ASPECT = 0.22;
 
 export function CarShowroom({ cars }: { cars: HomeCar[] }) {
   const section = useRef<HTMLElement>(null);
@@ -62,14 +66,15 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
         p.car.style.visibility = m.offStage ? "hidden" : "visible";
       }
 
-      const wheels = carInfo.images.photo?.wheels;
+      const drawn = drawnCar(carInfo);
+      const wheels = drawn?.wheels;
       if (wheels && !reduce) {
         [wheels.front, wheels.rear].forEach((w, k) => {
           const el = p.wheels[k];
           if (!el) return;
           const turn = wheelTurn(x, w.r * carW);
           // A right-facing photo is drawn mirrored, which mirrors the turn too.
-          const deg = carInfo.images.photo?.facesRight ? -turn : turn;
+          const deg = drawn?.facesRight ? -turn : turn;
           el.style.transform = `rotate(${deg.toFixed(2)}deg)`;
         });
       }
@@ -91,12 +96,53 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
     }
   }, [cars]);
 
+  /**
+   * Centre each logo in the open sky between the car's name and the top of
+   * the car, shrinking it if it wouldn't fit. Measured, since both depend on
+   * the screen, the name's length and the car's shape. Runs on load and
+   * resize, not on scroll (scrolling only moves things sideways and fades them).
+   */
+  const placeLogos = useCallback(() => {
+    const ground = stage.current?.querySelector<HTMLElement>(".showroom-ground");
+    if (!ground) return;
+    for (const p of parts.current) {
+      const logo = p.logo;
+      const heading = p.text?.querySelector<HTMLElement>(".scene-heading");
+      if (!logo || !heading) continue;
+      logo.style.width = "";
+      logo.style.top = "";
+      logo.style.marginTop = "0";
+      // Offsets ignore the scroll transforms; the logo, text and ground
+      // layers all start at the stage's top.
+      const above = heading.offsetTop + heading.offsetHeight;
+      // Clear of the car, so none of the logo is hidden; on a screen too
+      // short for that, down to the horizon, the car covering its foot.
+      const clear = Math.min(ground.offsetTop, p.car?.offsetTop ?? ground.offsetTop);
+      const below = clear - above >= 120 ? clear : ground.offsetTop;
+      const room = below - above;
+      if (room <= 0) continue;
+      // An image's height before it loads: its width times its proportions.
+      const aspect = Number(logo.dataset.aspect) || logo.offsetHeight / logo.offsetWidth;
+      let height = logo.offsetWidth * aspect;
+      const fit = room * 0.8;
+      if (height > fit) {
+        logo.style.width = `${fit / aspect}px`;
+        height = fit;
+      }
+      logo.style.top = `${above + (room - height) / 2}px`;
+    }
+  }, []);
+
   useEffect(() => {
     let frame = 0;
     const schedule = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(update);
+      frame = requestAnimationFrame(() => {
+        placeLogos();
+        update();
+      });
     };
+    placeLogos();
     update();
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", schedule);
@@ -109,7 +155,7 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
       window.removeEventListener("resize", schedule);
       sizes.disconnect();
     };
-  }, [update]);
+  }, [update, placeLogos]);
 
   const goTo = (i: number) => {
     const el = section.current;
@@ -134,20 +180,37 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
       <div ref={stage} className="showroom-stage">
         <div className="showroom-ground" aria-hidden="true" />
         {cars.map((car, i) => {
-          const photo = car.images.photo;
-          const logo = car.images.logo;
+          // The car's photo, or its body-style outline until it has one.
+          const photo = drawnCar(car);
+          // The uploaded logo, else the brand's emblem, else the make in type.
+          const logo = car.images.logo ?? car.brandLogo;
           const aspect = photo?.width && photo.height ? photo.height / photo.width : 0.32;
-          const logoAspect = logo?.width && logo.height ? logo.height / logo.width : 0.47;
+          const logoAspect = logo?.width && logo.height ? logo.height / logo.width : logo ? 0.47 : TEXT_LOGO_ASPECT;
           return (
             <div
               key={car.id}
               className="scene"
               style={{ "--aspect": aspect, "--logo-aspect": logoAspect } as React.CSSProperties}
             >
-              {logo && (
-                <div ref={(el) => void (parts.current[i].logo = el)} className="scene-logo" aria-hidden="true">
+              {logo ? (
+                <div
+                  ref={(el) => void (parts.current[i].logo = el)}
+                  className="scene-logo"
+                  data-aspect={logoAspect}
+                  aria-hidden="true"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={logo.url} alt="" />
+                </div>
+              ) : (
+                <div
+                  ref={(el) => void (parts.current[i].logo = el)}
+                  className="scene-logo scene-logo-text"
+                  data-aspect={TEXT_LOGO_ASPECT}
+                  style={{ "--chars": car.make.length } as React.CSSProperties}
+                  aria-hidden="true"
+                >
+                  <span>{car.make}</span>
                 </div>
               )}
 
@@ -159,6 +222,7 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
                     height={photo.height}
                     wheels={photo.wheels}
                     facesRight={photo.facesRight}
+                    shadow
                     wheelRef={(el, k) => void (parts.current[i].wheels[k] = el)}
                   />
                 </div>
@@ -175,6 +239,11 @@ export function CarShowroom({ cars }: { cars: HomeCar[] }) {
                   </p>
                 )}
                 <div className="scene-details">
+                  {car.outline && photo === car.outline && (
+                    <p className="scene-outline-note">
+                      <Link href={`/watch/${car.id}/edit`}>Add a car photo</Link> to see the real car here.
+                    </p>
+                  )}
                   <CarStats car={car} />
                   <Link href={`/watch/${car.id}`} className="pill-button primary">
                     View listings &amp; market

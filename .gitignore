@@ -16,3 +16,7 @@ data/*.json.gz
 
 # macOS
 .DS_Store
+
+# Background-removal model, 224 MB: fetched by `npm run download-model`
+models/birefnet-lite.onnx
+models/*.part

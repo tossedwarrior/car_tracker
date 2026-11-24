@@ -53,6 +53,10 @@ header.site .brand { font-size: 24px; font-weight: 700; text-decoration: none; w
 header.site nav { display: flex; align-items: center; gap: 32px; }
 header.site nav a { font-size: 20px; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; }
 header.site nav a:hover { text-decoration: underline; text-underline-offset: 4px; }
+/* Sign out: a form button that looks like the links beside it. */
+.nav-form { display: contents; }
+.nav-button { font: inherit; font-size: 20px; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
+.nav-button:hover { text-decoration: underline; text-underline-offset: 4px; }
 
 main { max-width: var(--page-max); margin: 0 auto; padding: 24px var(--gutter) 96px; }
 
@@ -211,6 +215,11 @@ tr.unseen td { background: #fafafa; }
 .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .login { max-width: 420px; margin: 64px auto; }
 .login h1 { margin-bottom: 12px; }
+.login .form { margin-top: 32px; }
+.signin-sent { margin-top: 32px; }
+.signin-sent p { margin: 6px 0; }
+.signin-sent .strong { font-size: 24px; font-weight: 700; }
+.signin-sent .notice { margin-top: 24px; }
 
 /* Settings and refresh results */
 .meter { width: 160px; height: 4px; background: var(--pill-active); overflow: hidden; margin: 6px 0 6px; }
@@ -318,7 +327,7 @@ tr.unseen td { background: #fafafa; }
   header.site .inner { min-height: 60px; padding: 0 16px; gap: 16px; }
   header.site .brand { font-size: 20px; }
   header.site nav { gap: 16px; }
-  header.site nav a { font-size: 16px; }
+  header.site nav a, .nav-button { font-size: 16px; }
   .nav-count { min-width: 22px; height: 22px; font-size: 12px; }
 
   .car-head { grid-template-columns: 1fr; }
@@ -379,6 +388,8 @@ header.site nav a[aria-current="page"] { font-weight: 700; }
 
 .form-page { max-width: 712px; margin: 0 auto; }
 .form-page > h1 { margin: 24px 0 61px; }
+.form-page > h1:has(+ .form-intro) { margin-bottom: 16px; }
+.form-intro { margin: 0 0 48px; }
 .car-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 48px 24px; }
 .car-form .wide { grid-column: 1 / -1; }
 .pill-field { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -435,7 +446,12 @@ header.site nav a[aria-current="page"] { font-weight: 700; }
 /* ---------- Car drawn with turnable wheels ---------- */
 .car-sprite { position: relative; width: 100%; }
 .car-sprite-inner { position: relative; width: 100%; height: 100%; }
-.car-sprite img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
+/* Under the car: the photo is see-through around it, so the shadow shows. */
+.car-shadow { position: absolute; inset: 0; pointer-events: none; }
+.car-shadow > div { position: absolute; border-radius: 50%; }
+.car-shadow-body { background: radial-gradient(closest-side, rgb(14 18 22 / 0.72), rgb(14 18 22 / 0.6) 45%, rgb(14 18 22 / 0.3) 78%, rgb(14 18 22 / 0)); }
+.car-shadow-tyre { background: radial-gradient(closest-side, rgb(6 8 10 / 0.9), rgb(6 8 10 / 0.55) 55%, rgb(6 8 10 / 0)); }
+.car-sprite img { display: block; position: relative; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; }
 .car-wheel {
   position: absolute; aspect-ratio: 1; border-radius: 50%;
   background-repeat: no-repeat; will-change: transform; transform: rotate(0deg);
@@ -518,6 +534,9 @@ body:has(.showroom) header.site { position: sticky; top: 0; z-index: 20; }
 .scene-title { font-size: clamp(34px, 4vw, 60px); font-weight: 700; line-height: 1.02; margin: 0; letter-spacing: -0.01em; }
 .scene-no-photo { position: absolute; left: 0; right: 0; top: calc(var(--stage-h) * 0.38); text-align: center; font-size: 18px; color: var(--muted); }
 .scene-no-photo a { pointer-events: auto; }
+/* Under a body-style outline: the way to show the real car. */
+.scene-outline-note { margin: 0; font-size: 16px; color: var(--muted); text-align: center; }
+.car-row-outline-note { margin: -36px 0 32px; font-size: 16px; color: var(--muted); }
 .scene-details {
   position: absolute; left: 0; right: 0; top: calc(var(--stage-h) * var(--ground-f) + 44px);
   display: flex; flex-direction: column; align-items: center; gap: 44px; padding: 0 64px;
@@ -700,7 +719,7 @@ header.site { position: relative; z-index: 20; }
     position: absolute; left: 0; right: 0; top: 100%; padding: 12px 30px 32px;
     background: #fff; box-shadow: 0 16px 24px rgb(0 0 0 / 0.06);
   }
-  header.site nav.open a { font-size: 24px; }
+  header.site nav.open a, header.site nav.open .nav-button { font-size: 24px; }
 
   /* Expanded view */
   .showroom {
@@ -841,3 +860,49 @@ header.site { position: relative; z-index: 20; }
   .scene-details { gap: calc(31 * var(--k) - var(--squeeze) * 0.4); }
   .scene .car-stats { row-gap: calc(23 * var(--k) - var(--squeeze) * 0.3); }
 }
+
+/* Settings: email preferences */
+.checks { border: 0; padding: 0; margin: 0; display: grid; gap: 12px; }
+.checks legend { font-family: var(--font-serif), Georgia, serif; font-size: 18px; margin-bottom: 12px; padding: 0; }
+.checks label { display: flex; gap: 10px; align-items: baseline; }
+/* Under the new-listings box: which day of the month. */
+.listing-day { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: -4px 0 4px 23px; }
+.listing-day select { font: inherit; padding: 4px 8px; border: 1px solid var(--border-strong); border-radius: 6px; background: #fff; }
+.listing-day .muted { flex-basis: 100%; }
+
+/* No logo for this make: its name, set large and faint in the logo's place,
+   sized to fit its width whatever its length. */
+.scene-logo-text {
+  /* A band as wide as the logo would be, the name sized to fill it. */
+  aspect-ratio: 100 / 22; container-type: inline-size;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.scene-logo-text span {
+  font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; line-height: 0.8; color: #000;
+  font-size: min(20cqw, calc(160cqw / var(--chars)));
+}
+.car-row-panel { container-type: inline-size; }
+.car-row-logo-text {
+  position: absolute; left: 50%; top: 12%; transform: translateX(-50%); opacity: 0.05;
+  font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; line-height: 1; color: #000;
+  font-size: min(16cqw, calc(130cqw / var(--chars)));
+}
+
+/* Settings: brand logos */
+.make-logos { display: grid; gap: 16px; margin-top: 24px; }
+.make-logo-row { display: grid; grid-template-columns: 96px 1fr auto auto; gap: 20px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.make-logo-preview { width: 96px; height: 56px; display: grid; place-items: center; background: #eef2f3; overflow: hidden; }
+.make-logo-preview img { max-width: 80%; max-height: 80%; }
+.make-logo-preview span { font-weight: 700; font-size: 14px; color: #9aa3a9; white-space: nowrap; }
+.make-logo-info p { margin: 0; }
+.make-logo-form { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.make-logo-form input[type="file"] { font-size: 14px; max-width: 220px; }
+@media (max-width: 700px) {
+  .make-logo-row { grid-template-columns: 72px 1fr; }
+  .make-logo-preview { width: 72px; height: 44px; }
+  .make-logo-form, .make-logo-row > form:last-child { grid-column: 1 / -1; }
+}
+
+/* Car form: what was done to a chosen photo. */
+.upload-status { color: var(--fg); }
+.link-button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }

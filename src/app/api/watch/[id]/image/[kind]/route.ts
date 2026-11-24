@@ -1,11 +1,17 @@
 import { imageKinds, type ImageKind } from "@/db/schema";
+import type { NextRequest } from "next/server";
+import { SESSION_COOKIE } from "@/lib/auth";
 import { getImage } from "@/lib/images";
+import { getSessionUser } from "@/lib/users";
 
-/** A car's brand logo or photo. Behind the sign-in like every other page. */
+/** A car's brand logo or photo, for anyone signed in. */
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; kind: string }> },
 ) {
+  if (!(await getSessionUser(request.cookies.get(SESSION_COOKIE)?.value))) {
+    return new Response("Sign in first.", { status: 401 });
+  }
   const { id, kind } = await params;
   if (!imageKinds.includes(kind as ImageKind)) return new Response("Not found", { status: 404 });
   const image = await getImage(Number(id), kind as ImageKind);

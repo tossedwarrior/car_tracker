@@ -32,7 +32,73 @@ const createdAt = () =>
 /** Images up to MAX_IMAGE_BYTES; MySQL's plain blob stops at 64 KB. */
 const longblob = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "longblob" });
 
-/** The cars I care about. */
+/** People with an account. Signing up and signing in are both by emailed link. */
+export const users = mysqlTable(
+  "users",
+  {
+    id: id(),
+    // Stored lowercased and trimmed (see normalizeEmail).
+    email: varchar("email", { length: 191 }).notNull(),
+    name: varchar("name", { length: 100 }),
+    // OWNER_EMAIL's account: Settings shows API usage, backups and refresh
+    // logs, and only it pulls auction results or fixes listings.
+    isAdmin: boolean("is_admin").notNull().default(false),
+    // Email preferences.
+    listingEmails: boolean("listing_emails").notNull().default(true),
+    monthlyReport: boolean("monthly_report").notNull().default(true),
+    // New-listing emails go out once a month, as one email: on this day of
+    // the month (1–28, so every month has it), and next on
+    // listing_email_next (YYYY-MM-DD; null until it's been worked out).
+    listingEmailDay: int("listing_email_day").notNull().default(1),
+    listingEmailNext: varchar("listing_email_next", { length: 10 }),
+    listingEmailSentOn: varchar("listing_email_sent_on", { length: 10 }),
+    // The newest alert the last one covered; the next one has what's after it.
+    listingsEmailedThrough: int("listings_emailed_through").notNull().default(0),
+    // The CAD/USD switch, saved so emails show prices the same way.
+    displayCurrency: varchar("display_currency", { length: 16, enum: currencies }).notNull().default("CAD"),
+    createdAt: createdAt(),
+    lastSignInAt: date("last_sign_in_at"),
+  },
+  (t) => [uniqueIndex("users_email_uq").on(t.email)],
+);
+
+/** One-time sign-in links. Only a hash of the token is kept. */
+export const loginTokens = mysqlTable(
+  "login_tokens",
+  {
+    id: id(),
+    userId: int("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: date("expires_at").notNull(),
+    usedAt: date("used_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("login_tokens_hash_uq").on(t.tokenHash), index("login_tokens_user_idx").on(t.userId)],
+);
+
+/** Signed-in browsers. The cookie holds the token; only its hash is kept. */
+export const sessions = mysqlTable(
+  "sessions",
+  {
+    id: id(),
+    userId: int("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: date("expires_at").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("sessions_hash_uq").on(t.tokenHash), index("sessions_user_idx").on(t.userId)],
+);
+
+/**
+ * A car search: what the sources are asked for. People who add the same car
+ * (same make, model, years, mileage and trim) share one search, so it's
+ * fetched once however many follow it. Each person's target price and notes
+ * are on their follow.
+ */
 export const watchlist = mysqlTable("watchlist", {
   id: id(),
   make: varchar("make", { length: 100 }).notNull(),
@@ -41,18 +107,44 @@ export const watchlist = mysqlTable("watchlist", {
   yearMax: int("year_max").notNull(),
   maxKm: int("max_km"),
   trim: text("trim"),
-  targetPrice: int("target_price"),
-  targetCurrency: varchar("target_currency", { length: 16, enum: currencies })
+  // From before accounts, when the app had one user. Copied to the owner's
+  // follow the first time OWNER_EMAIL signs in (see adoptLegacyData), then unused.
+  legacyTargetPrice: int("target_price"),
+  legacyTargetCurrency: varchar("target_currency", { length: 16, enum: currencies })
     .notNull()
     .default("CAD"),
-  notes: text("notes"),
+  legacyNotes: text("notes"),
   active: boolean("active").notNull().default(true),
   // When this car's listings were last refreshed (ISO timestamp).
   lastRefreshed: date("last_refreshed"),
   // When auction results were last pulled for this car (ISO timestamp).
   lastSoldPull: date("last_sold_pull"),
+  // When a car photo was last looked for online (src/lib/car-photo.ts), so
+  // each search spends a lookup credit once, not on every follow.
+  photoLookupAt: date("photo_lookup_at"),
   createdAt: createdAt(),
 });
+
+/** A person following a car search, with their own target price and notes. */
+export const follows = mysqlTable(
+  "follows",
+  {
+    id: id(),
+    userId: int("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    watchId: int("watch_id")
+      .notNull()
+      .references(() => watchlist.id, { onDelete: "cascade" }),
+    targetPrice: int("target_price"),
+    targetCurrency: varchar("target_currency", { length: 16, enum: currencies })
+      .notNull()
+      .default("CAD"),
+    notes: text("notes"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("follows_user_watch_uq").on(t.userId, t.watchId), index("follows_watch_idx").on(t.watchId)],
+);
 
 export const listingStatuses = ["active", "gone"] as const;
 export const sellerTypes = ["dealer", "private", "auction", "unknown"] as const;
@@ -169,11 +261,13 @@ export const marketSnapshots = mysqlTable(
 
 export const alertTypes = ["new_listing", "price_drop", "under_target"] as const;
 
-/** So the same alert isn't sent twice. */
+/** Each person's alerts, so the same alert isn't sent to them twice. */
 export const alertsSent = mysqlTable(
   "alerts_sent",
   {
     id: id(),
+    // Null only on alerts from before accounts, until the owner adopts them.
+    userId: int("user_id").references(() => users.id, { onDelete: "cascade" }),
     listingId: int("listing_id")
       .notNull()
       .references(() => listings.id, { onDelete: "cascade" }),
@@ -184,11 +278,10 @@ export const alertsSent = mysqlTable(
     seen: boolean("seen").notNull().default(false),
   },
   (t) => [
-    uniqueIndex("alerts_sent_listing_type_price_uq").on(
-      t.listingId,
-      t.type,
-      t.price,
-    ),
+    uniqueIndex("alerts_sent_user_listing_type_price_uq").on(t.userId, t.listingId, t.type, t.price),
+    index("alerts_sent_user_seen_idx").on(t.userId, t.seen),
+    // Foreign key lookups from listings.
+    index("alerts_sent_listing_idx").on(t.listingId),
   ],
 );
 
@@ -252,7 +345,32 @@ export const watchImages = mysqlTable(
     // see WheelSpec in src/lib/wheels.ts), and whether the car faces right.
     wheels: text("wheels"),
     facesRight: boolean("faces_right").notNull().default(false),
+    // Found online rather than uploaded: the page it came from, for credit and
+    // to check its usage rights.
+    sourceUrl: text("source_url"),
     updatedAt: date("updated_at").notNull(),
   },
   (t) => [uniqueIndex("watch_images_watch_kind_uq").on(t.watchId, t.kind)],
+);
+
+/**
+ * A logo uploaded once for a make, shown behind every car of that make that
+ * has no logo of its own (src/lib/make-logos.ts). Keyed like brand emblems:
+ * "Rolls-Royce" and "rolls royce" are both "rollsroyce".
+ */
+export const makeLogos = mysqlTable(
+  "make_logos",
+  {
+    id: id(),
+    makeKey: varchar("make_key", { length: 100 }).notNull(),
+    // As first typed, for showing in Settings.
+    make: varchar("make", { length: 100 }).notNull(),
+    contentType: varchar("content_type", { length: 64 }).notNull(),
+    data: longblob("data").notNull(),
+    fileName: text("file_name"),
+    width: int("width"),
+    height: int("height"),
+    updatedAt: date("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("make_logos_make_key_uq").on(t.makeKey)],
 );

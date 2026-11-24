@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { HomeCar } from "@/lib/home";
+import { drawnCar } from "@/lib/outlines";
 import { CarSprite } from "./CarSprite";
 import { CarStats } from "./CarStats";
 import { ViewSwitch } from "./ViewSwitch";
@@ -16,8 +17,10 @@ export function CarList({ cars }: { cars: HomeCar[] }) {
         <ViewSwitch current="list" />
       </div>
       {cars.map((car) => {
-        const photo = car.images.photo;
-        const logo = car.images.logo;
+        // The car's photo, or its body-style outline until it has one.
+        const photo = drawnCar(car);
+        // The uploaded logo, else the brand's emblem, else the make in type.
+        const logo = car.images.logo ?? car.brandLogo;
         const logoAspect = logo?.width && logo.height ? logo.height / logo.width : 0.47;
         return (
           <article key={car.id} className="car-row">
@@ -34,9 +37,13 @@ export function CarList({ cars }: { cars: HomeCar[] }) {
               tabIndex={-1}
               style={{ "--logo-aspect": logoAspect } as React.CSSProperties}
             >
-              {logo && (
+              {logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img className="car-row-logo" src={logo.url} alt="" />
+              ) : (
+                <span className="car-row-logo-text" style={{ "--chars": car.make.length } as React.CSSProperties}>
+                  {car.make}
+                </span>
               )}
               {photo?.width && photo.height ? (
                 <div className="car-row-car">
@@ -47,6 +54,11 @@ export function CarList({ cars }: { cars: HomeCar[] }) {
               )}
             </Link>
             <div className="car-row-body">
+              {car.outline && photo === car.outline && (
+                <p className="car-row-outline-note">
+                  <Link href={`/watch/${car.id}/edit`}>Add a car photo</Link> to see the real car here.
+                </p>
+              )}
               <CarStats car={car} />
               <Link href={`/watch/${car.id}`} className="pill-button primary">
                 View listings &amp; market

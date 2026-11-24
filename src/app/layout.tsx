@@ -1,23 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
 import Link from "next/link";
+import { CustomerioAnalytics } from "@/components/CustomerioAnalytics";
 import { NavLinks } from "@/components/NavLinks";
 import { countUnseenAlerts } from "@/jobs/alerts";
-import { isValidSession, SESSION_COOKIE } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { sans, serif } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Poster Wall",
-  description: "Tracks asking and sold prices for the exotics I'm watching.",
+  description: "Follow the exotics you want: every listing, auction results and where prices are heading.",
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const signedIn = await isValidSession((await cookies()).get(SESSION_COOKIE)?.value);
-  // Signed out (sign-in page only): no navigation, nothing from the database.
-  const unseenAlerts = signedIn ? await countUnseenAlerts() : 0;
+  const user = await getCurrentUser();
+  // Signed out (sign-in and About pages only): no navigation.
+  const unseenAlerts = user ? await countUnseenAlerts(user.id) : 0;
 
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable}`}>
@@ -27,12 +27,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Link href="/" className="brand">
               Poster Wall
             </Link>
-            {signedIn && (
-              <NavLinks unseenAlerts={unseenAlerts} />
-            )}
+            {user && <NavLinks unseenAlerts={unseenAlerts} />}
           </div>
         </header>
         <main>{children}</main>
+        <CustomerioAnalytics user={user && { id: user.id, email: user.email }} />
       </body>
     </html>
   );

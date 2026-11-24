@@ -1,7 +1,8 @@
 import { migrate } from "drizzle-orm/mysql2/migrator";
 import mysql from "mysql2/promise";
-import { afterAll } from "vitest";
+import { afterAll, beforeEach } from "vitest";
 import { closeDb, db } from "@/db";
+import { setCustomerioForTests } from "@/lib/customerio";
 import { connectionOptions, toUrl } from "../../scripts/db-config.cjs";
 
 // Every test file starts with an empty database of its own, on the local
@@ -20,3 +21,11 @@ process.env.DATABASE_URL = toUrl({ ...base, database });
 await migrate(db, { migrationsFolder: "drizzle" });
 
 afterAll(closeDb);
+
+// Never send anything to a real Customer.io workspace from tests, even with
+// keys in .env. Tests that check what's sent swap in a fake client.
+// Same for CarsXE: tests that look up photos stub the key and the requests.
+for (const name of Object.keys(process.env)) {
+  if (name.includes("CUSTOMERIO") || name.startsWith("CARSXE")) delete process.env[name];
+}
+beforeEach(() => setCustomerioForTests(null));

@@ -1,7 +1,8 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { insertRow } from "@/test/db";
-import { watchlist } from "@/db/schema";
+import { follows } from "@/db/schema";
+import { followedWatch, makeUser } from "@/test/db";
 import { Rates } from "@/lib/fx";
 import type { NormalizedListing } from "@/sources/types";
 import { countUnseenAlerts, getAlerts, markAllAlertsSeen, recordAlerts } from "./alerts";
@@ -30,12 +31,12 @@ const car = (vin: string, price: number | null, currency: "USD" | "CAD" = "USD")
 });
 
 async function setup(targetPrice: number | null = 250000) {
-  const watchId = (await insertRow(watchlist, { make: "Ferrari", model: "458 Italia", yearMin: 2011, yearMax: 2015, targetPrice, targetCurrency: "CAD" })).id;
+  const { userId, watchId } = await followedWatch({ targetPrice });
   const refresh = async (date: string, found: NormalizedListing[], firstSearch = false) => {
     const { addedIds } = await recordListings({ watchId, source: "autodev", found, date, complete: true });
     return await recordAlerts({ watchId, source: "autodev", date, rates, newListingIds: addedIds, firstSearch });
   };
-  return { watchId, refresh };
+  return { userId, watchId, refresh };
 }
 
 describe("recordAlerts", () => {
@@ -80,14 +81,45 @@ describe("recordAlerts", () => {
   });
 
   it("lists alerts newest first with the price before a drop, and tracks what's been seen", async () => {
-    const { refresh } = await setup(null);
+    const { userId, refresh } = await setup(null);
     await refresh("2026-10-01", [car("D1", 300000)], true);
     await refresh("2026-10-05", [car("D1", 275000)]);
 
-    const drop = (await getAlerts()).find((a) => a.listing.vin === "D1")!;
+    const drop = (await getAlerts(userId)).find((a) => a.listing.vin === "D1")!;
     expect(drop).toMatchObject({ type: "price_drop", price: 275000, previousPrice: 300000, seen: false });
-    expect(await countUnseenAlerts()).toBeGreaterThan(0);
-    await markAllAlertsSeen();
-    expect(await countUnseenAlerts()).toBe(0);
+    expect(await countUnseenAlerts(userId)).toBeGreaterThan(0);
+    await markAllAlertsSeen(userId);
+    expect(await countUnseenAlerts(userId)).toBe(0);
+  });
+
+  it("alerts each follower, under their own target, and keeps their alerts apart", async () => {
+    // Target CA$250,000 for the first follower; the second's is US$150,000.
+    const { userId: first, watchId, refresh } = await setup(250000);
+    const second = (await makeUser()).id;
+    await db.insert(follows).values({ userId: second, watchId, targetPrice: 150000, targetCurrency: "USD" });
+    await refresh("2026-10-01", [car("E1", 300000)], true);
+
+    const counts = await refresh("2026-10-02", [car("E1", 300000), car("E2", 170000)]);
+    // E2 is new to both, but counted once; it's US$170,000: under the first target, over the second.
+    expect(counts).toMatchObject({ new_listing: 1, under_target: 1 });
+    const types = async (userId: number) => (await getAlerts(userId)).map((a) => a.type).sort();
+    expect(await types(first)).toEqual(["new_listing", "under_target"]);
+    expect(await types(second)).toEqual(["new_listing"]);
+
+    await markAllAlertsSeen(first);
+    expect(await countUnseenAlerts(first)).toBe(0);
+    expect(await countUnseenAlerts(second)).toBe(1);
+  });
+
+  it("records nothing for a car nobody follows", async () => {
+    const { userId, watchId, refresh } = await setup(250000);
+    await db.delete(follows).where(eq(follows.watchId, watchId));
+    await refresh("2026-10-01", [car("F1", 1)], true);
+    expect(await refresh("2026-10-02", [car("F1", 1), car("F2", 1)])).toEqual({
+      new_listing: 0,
+      price_drop: 0,
+      under_target: 0,
+    });
+    expect(await getAlerts(userId)).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { markAlertsSeen } from "@/app/actions";
 import { Money } from "@/components/Money";
 import { getAlerts, type AlertRow } from "@/jobs/alerts";
+import { requireUser } from "@/lib/current-user";
 import { getDisplayCurrency } from "@/lib/display-currency";
 import { formatKm, watchTitle } from "@/lib/format";
 import { Rates } from "@/lib/fx";
@@ -16,7 +17,8 @@ const typeLabels: Record<AlertRow["type"], string> = {
 };
 
 export default async function AlertsPage() {
-  const alerts = await getAlerts();
+  const user = await requireUser();
+  const alerts = await getAlerts(user.id);
   const unseen = alerts.filter((a) => !a.seen).length;
   const display = await getDisplayCurrency();
   const rates = await Rates.load();

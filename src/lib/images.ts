@@ -30,6 +30,8 @@ export interface ImageUpload {
   fileName: string;
   width: number | null;
   height: number | null;
+  /** Found online: the page it came from. Uploads have none. */
+  sourceUrl?: string | null;
 }
 
 /**
@@ -53,7 +55,12 @@ export async function readImageUpload(
 
 /** Save an image. A new car photo forgets the old one's wheel positions. */
 export async function saveImage(watchId: number, kind: ImageKind, image: ImageUpload, now = new Date()) {
-  const values = { ...image, updatedAt: now.toISOString(), ...(kind === "photo" ? { wheels: null } : {}) };
+  const values = {
+    ...image,
+    sourceUrl: image.sourceUrl ?? null,
+    updatedAt: now.toISOString(),
+    ...(kind === "photo" ? { wheels: null } : {}),
+  };
   await db
     .insert(watchImages)
     .values({ watchId, kind, ...values })

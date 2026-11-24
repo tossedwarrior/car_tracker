@@ -1,43 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { SignInForm } from "@/components/SignInForm";
 import { safeNext } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/current-user";
 
 export const metadata: Metadata = { title: "Sign in · Poster Wall" };
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ next?: string; error?: string }>;
-}) {
-  const { next, error } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const next = safeNext((await searchParams).next);
+  if (await getCurrentUser()) redirect(next);
 
   return (
     <div className="login">
-      <h1>Sign in</h1>
+      <h1>Sign in or sign up</h1>
       <p className="muted">
-        This is a private car price tracker. <Link href="/about">About the project</Link>
+        Follow the exotics you want, see every listing and where their prices are heading, and get an
+        email when a new one comes up. <Link href="/about">About the project</Link>
       </p>
-      <form method="post" action="/api/login" className="form">
-        <input type="hidden" name="next" value={safeNext(next)} />
-        <label className="field">
-          <span>Password</span>
-          <input
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            autoFocus
-            required
-            aria-invalid={!!error}
-          />
-          {error && <em className="error">That password isn&apos;t right.</em>}
-        </label>
-        <div className="actions">
-          <button type="submit" className="button primary">
-            Sign in
-          </button>
-        </div>
-      </form>
+      <SignInForm next={next} />
     </div>
   );
 }

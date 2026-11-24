@@ -8,6 +8,41 @@
       "when": 1793155839355,
       "tag": "0000_init_mysql",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1795206582743,
+      "tag": "0001_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1795448710845,
+      "tag": "0002_display_currency",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1795461103948,
+      "tag": "0003_car_photo_lookup",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1795464026792,
+      "tag": "0004_make_logos",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1795538834750,
+      "tag": "0005_monthly_listing_emails",
+      "breakpoints": true
     }
   ]
 }

@@ -6,11 +6,14 @@ import {
   alertsSent,
   apiUsage,
   checkRuns,
+  follows,
   fxRates,
   listings,
+  makeLogos,
   marketSnapshots,
   priceSnapshots,
   soldResults,
+  users,
   watchImages,
   watchlist,
 } from "@/db/schema";
@@ -21,9 +24,16 @@ import {
 
 const FORMAT = 1;
 
-/** Every table, parents before the tables that point at them. */
+/**
+ * Every table, parents before the tables that point at them. Sessions and
+ * sign-in links stay out: restoring signs everyone out, and they sign in again.
+ * A backup from before accounts has no users or follows; the owner takes its
+ * cars over on their next sign-in (adoptLegacyData).
+ */
 export const BACKUP_TABLES = {
+  users,
   watchlist,
+  follows,
   listings,
   priceSnapshots,
   soldResults,
@@ -33,6 +43,7 @@ export const BACKUP_TABLES = {
   fxRates,
   checkRuns,
   watchImages,
+  makeLogos,
 } satisfies Record<string, MySqlTable>;
 
 type TableName = keyof typeof BACKUP_TABLES;
@@ -113,7 +124,7 @@ export async function restoreBackup(bytes: Buffer): Promise<BackupCounts> {
     for (const [name, table] of entries) {
       const rows = clean(table, file.tables[name] ?? []);
       // Images go one at a time (each can be megabytes); the rest in batches.
-      const size = table === watchImages ? 1 : 200;
+      const size = table === watchImages || table === makeLogos ? 1 : 200;
       for (let i = 0; i < rows.length; i += size) {
         await tx.insert(table).values(rows.slice(i, i + size) as InferInsertModel<typeof table>[]);
       }
@@ -127,10 +138,11 @@ export async function restoreBackup(bytes: Buffer): Promise<BackupCounts> {
 export function describeCounts(c: BackupCounts): string {
   const n = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString("en-CA")} ${count === 1 ? one : many}`;
   return [
+    n(c.users, "account"),
     n(c.watchlist, "car"),
     n(c.listings, "listing"),
     n(c.soldResults, "auction result"),
-    n(c.watchImages, "photo or logo", "photos and logos"),
+    n(c.watchImages + c.makeLogos, "photo or logo", "photos and logos"),
   ].join(", ");
 }
 

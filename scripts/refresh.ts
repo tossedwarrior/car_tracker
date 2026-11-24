@@ -5,10 +5,13 @@
 import "dotenv/config";
 import { closeDb } from "@/db";
 import { runRefresh } from "@/jobs/refresh";
+import { customerio } from "@/lib/customerio";
 
 const ids = process.argv.slice(2).map(Number).filter(Boolean);
 const result = await runRefresh({ watchIds: ids.length ? ids : undefined });
 console.log(`Refresh #${result.runId}: ${result.status}, ${result.calls} call(s)`);
 console.log(result.log.join("\n"));
 process.exitCode = result.status === "failed" ? 1 : 0;
+// Send anything still queued for Customer.io before exiting.
+await customerio()?.flush();
 await closeDb();

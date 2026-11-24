@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { saveWatch, type WatchFormState } from "@/app/actions";
 import type { Watch } from "@/lib/watchlist";
 import type { WheelSpec } from "@/lib/wheels";
@@ -18,13 +18,18 @@ const IMAGE_ACCEPT = ".png,.jpg,.jpeg,.webp,.svg";
 export function WatchForm({
   watch,
   images = {},
+  lockedImages = { logo: false, photo: false },
 }: {
   watch?: Watch;
   /** Current images when editing. */
   images?: { logo?: string; photo?: string; wheels?: WheelSpec | null; facesRight?: boolean };
+  /** Images this person can't replace, because others follow the car too. */
+  lockedImages?: { logo: boolean; photo: boolean };
 }) {
   // The car photo being shown: a newly chosen file, else the current one.
   const [photoSrc, setPhotoSrc] = useState<string | undefined>(images.photo);
+  // Wheels found in a newly chosen photo (null: the wheel tool guesses).
+  const [foundWheels, setFoundWheels] = useState<WheelSpec | null>(null);
   const [state, action, pending] = useActionState(saveWatch, initial);
   const e = state.errors;
   const v = (name: keyof Watch) => state.values?.[name] ?? watch?.[name];
@@ -43,6 +48,11 @@ export function WatchForm({
       }}
     >
       {watch && <input type="hidden" name="id" value={watch.id} />}
+      {e.form && (
+        <p className="error wide" role="alert">
+          {e.form}
+        </p>
+      )}
 
       <Field label="Make" required name="make" error={e.make} defaultValue={v("make")} placeholder="Ferrari" />
       <Field label="Model" required name="model" error={e.model} defaultValue={v("model")} placeholder="458 Italia" />
@@ -66,31 +76,39 @@ export function WatchForm({
         <textarea className="pill-input pill-textarea" name="notes" defaultValue={String(v("notes") ?? "")} placeholder="Manual cars only" />
       </label>
 
-      <ImageField
-        name="logo"
-        label="Brand logo"
-        prompt="Upload logo"
-        required={adding}
-        current={images.logo}
-        error={e.logo}
-        hint="Transparent background, cropped tight. SVG, or PNG at least 1600 px wide."
-      />
-      <ImageField
-        name="photo"
-        label="Car photo"
-        prompt="Upload photo"
-        required={adding}
-        current={images.photo}
-        error={e.photo}
-        hint="Side-on, background removed, cropped tight to the car, at least 2000 px wide. Facing left is best."
-        onPreview={(url) => setPhotoSrc(url ?? images.photo)}
-      />
-      {photoSrc && (
+      {!lockedImages.logo && (
+        <ImageField
+          name="logo"
+          label="Brand logo"
+          prompt="Upload logo"
+          required={false}
+          current={images.logo}
+          error={e.logo}
+          hint="Optional. Transparent background, cropped tight. SVG, or PNG at least 1600 px wide."
+        />
+      )}
+      {!lockedImages.photo && (
+        <ImageField
+          name="photo"
+          label="Car photo"
+          prompt="Upload photo"
+          required={false}
+          current={images.photo}
+          error={e.photo}
+          hint="Optional. A side-on photo; we'll remove the background, crop it and mark the wheels for you. Facing left is best."
+          prepare={preparePhoto}
+          onPreview={(url, wheels) => {
+            setFoundWheels(wheels ?? null);
+            setPhotoSrc(url ?? images.photo);
+          }}
+        />
+      )}
+      {photoSrc && !lockedImages.photo && (
         <div className="wide">
           <WheelMarker
             src={photoSrc}
-            // A newly chosen photo starts with a fresh guess.
-            initialWheels={photoSrc === images.photo ? (images.wheels ?? null) : null}
+            // A newly chosen photo starts with the wheels found in it, or a guess.
+            initialWheels={photoSrc === images.photo ? (images.wheels ?? null) : foundWheels}
             initialFacesRight={images.facesRight ?? false}
           />
         </div>
@@ -141,6 +159,46 @@ function Field({
   );
 }
 
+interface Prepared {
+  file?: File;
+  wheels: WheelSpec | null;
+  note: string;
+}
+
+/**
+ * Send a chosen car photo to be prepared (src/app/api/prepare-photo):
+ * background removed if plain, cropped to the car, wheels found. Returns the
+ * prepared file to use instead, or just a note when it's best left as it was.
+ */
+async function preparePhoto(file: File): Promise<Prepared> {
+  try {
+    const res = await fetch("/api/prepare-photo", { method: "POST", body: file });
+    const body = (await res.json()) as {
+      error?: string;
+      image?: string;
+      wheels?: WheelSpec | null;
+      background?: "removed" | "already" | "busy";
+    };
+    if (!res.ok || !body.image) return { wheels: null, note: body.error ?? "Couldn't prepare this photo; it's used as it is." };
+    if (body.background === "busy") {
+      return {
+        wheels: null,
+        note: "The background is too busy to remove, so the photo is as you chose it. A photo against a plain wall or studio works best (on a Mac: right-click the file, Quick Actions, Remove Background).",
+      };
+    }
+    const bytes = Uint8Array.from(atob(body.image), (c) => c.charCodeAt(0));
+    const name = file.name.replace(/\.[^.]+$/, "") + ".png";
+    const done = body.background === "removed" ? "Background removed and cropped to the car" : "Cropped to the car";
+    return {
+      file: new File([bytes], name, { type: "image/png" }),
+      wheels: body.wheels ?? null,
+      note: body.wheels ? `${done}, wheels marked. Check them below.` : `${done}. Place the wheels below.`,
+    };
+  } catch {
+    return { wheels: null, note: "Couldn't prepare this photo; it's used as it is." };
+  }
+}
+
 /** An upload box (10:463, 10:467): click or drop an image; shows a preview once chosen. */
 function ImageField({
   name,
@@ -150,6 +208,7 @@ function ImageField({
   current,
   error,
   hint,
+  prepare,
   onPreview,
 }: {
   name: string;
@@ -159,10 +218,50 @@ function ImageField({
   current?: string;
   error?: string;
   hint?: string;
-  /** Called with the chosen file's preview URL (or undefined when cleared). */
-  onPreview?: (url: string | undefined) => void;
+  /** Prepare a chosen file (car photos); the result replaces it, with a note. */
+  prepare?: (file: File) => Promise<Prepared>;
+  /** Called with the preview URL shown (or undefined when cleared), and any wheels found. */
+  onPreview?: (url: string | undefined, wheels?: WheelSpec | null) => void;
 }) {
   const [chosen, setChosen] = useState<{ url: string; name: string } | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [original, setOriginal] = useState<File | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  // Only the latest choice counts, if someone picks again mid-way.
+  const latest = useRef(0);
+
+  /** Put a file in the input (so it's what's saved) and show it. */
+  const use = (file: File, wheels: WheelSpec | null) => {
+    const files = new DataTransfer();
+    files.items.add(file);
+    if (input.current) input.current.files = files.files;
+    const url = URL.createObjectURL(file);
+    setChosen({ url, name: file.name });
+    onPreview?.(url, wheels);
+  };
+
+  const choose = async (file: File | undefined) => {
+    const turn = ++latest.current;
+    setOriginal(null);
+    if (!file) {
+      setChosen(null);
+      setStatus(null);
+      onPreview?.(undefined);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setChosen({ url, name: file.name });
+    onPreview?.(url, null);
+    if (!prepare) return;
+    setStatus("Removing the background and finding the wheels…");
+    const result = await prepare(file);
+    if (turn !== latest.current) return;
+    setStatus(result.note);
+    if (result.file) {
+      setOriginal(file);
+      use(result.file, result.wheels);
+    }
+  };
   // Free the preview's memory when it's replaced or the form goes away.
   useEffect(() => {
     if (!chosen) return;
@@ -184,20 +283,41 @@ function ImageField({
           {chosen ? chosen.name : current ? `${prompt} to replace it` : `${prompt} .png`}
         </span>
         <input
+          ref={input}
           type="file"
           name={name}
           accept={IMAGE_ACCEPT}
           aria-required={required}
           aria-invalid={!!error}
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
-            const next = file ? { url: URL.createObjectURL(file), name: file.name } : null;
-            setChosen(next);
-            onPreview?.(next?.url);
-          }}
+          onChange={(event) => void choose(event.currentTarget.files?.[0])}
         />
       </span>
-      {error ? <em className="error">{error}</em> : hint && <small className="muted small">{hint}</small>}
+      {error ? (
+        <em className="error">{error}</em>
+      ) : status ? (
+        <small className="small upload-status" role="status">
+          {status}
+          {original && (
+            <>
+              {" "}
+              <button
+                type="button"
+                className="link-button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  use(original, null);
+                  setOriginal(null);
+                  setStatus("Using your photo as it was. Place the wheels below.");
+                }}
+              >
+                Use my original instead
+              </button>
+            </>
+          )}
+        </small>
+      ) : (
+        hint && <small className="muted small">{hint}</small>
+      )}
     </label>
   );
 }
